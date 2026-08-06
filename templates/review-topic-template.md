@@ -17,9 +17,10 @@ Scope: <what this covers, what's explicitly excluded/deferred and why>
 ### Implementasi aktual
 <what exists in code, with file:line or module references>
 
-### Delegasi ke Antigravity (jika ada)
-<tool dipakai (analyze_files/deep_search/web_lookup/adversarial_review/delegate),
-session_id (untuk follow_up), hasil singkat yang sudah diverifikasi>
+### Delegasi (jika ada)
+<provider: Antigravity atau Codex; tool dipakai; session_id untuk Antigravity
+follow_up atau threadId untuk Codex codex-reply; hasil singkat yang sudah
+diverifikasi>
 
 ### Gap list
 | # | Gap | Severity | Catatan |
