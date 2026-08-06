@@ -55,7 +55,7 @@ Code:
 | Situation | Delegate to |
 |---|---|
 | Large file analysis, broad search, or web/docs lookup | Antigravity (`analyze_files`, `deep_search`, or `web_lookup`) |
-| Code-level second opinion, implementation investigation, or review | Codex (`codex`) with `sandbox: read-only` unless a write is explicitly delegated |
+| Cross-module bug tracing, focused review, test-failure analysis, implementation planning, or bounded refactoring | Codex (`codex`) with `sandbox: read-only` unless a write is explicitly delegated |
 | Follow-up on Antigravity work | `follow_up` with the returned `session_id` |
 | Follow-up on Codex work | `codex-reply` with the returned `threadId` |
 

@@ -18,14 +18,28 @@ Use Antigravity tools when the task is primarily broad or retrieval-oriented:
 - **Git history or repo-wide searches** (git log/diff/blame, broad greps) → `deep_search`
 - **Web/documentation lookups** → `web_lookup`
 
-Use Codex when the task needs a code-agent second opinion:
+Use Codex when the task needs deep, bounded code reasoning rather than broad
+information retrieval:
 
-- **Implementation investigation, plan critique, or code review** → `codex`
-  with a precise prompt and `sandbox: read-only`
+- **Trace a bug across interacting modules** → `codex` with the symptom,
+  suspected entry points, and the exact question to resolve
+- **Assess an implementation plan or a non-obvious technical trade-off** →
+  `codex` with the proposed approach, constraints, and decision criteria
+- **Review a focused diff or a bounded set of changed files** → `codex` with
+  the review scope and the failure modes to look for
+- **Investigate test failures, edge cases, invariants, or regression risk** →
+  `codex` with the failing command/output and relevant files
+- **Design a targeted implementation or refactor** that touches several
+  related components → `codex` with the required behavior and file scope
+- Use `sandbox: read-only` by default for each of the above, with a precise
+  prompt that asks for findings, evidence, and recommended next steps
 - **Follow-up question on Codex work** → `codex-reply` with the returned
   `threadId` (never resend the context)
 - **A Codex edit is explicitly desired** → use `codex` with the requested
   writable sandbox only after Claude Code states the exact file scope
+
+Do not use Codex merely to read a large file, perform a broad repo search, or
+look up documentation; use Antigravity for those retrieval-oriented tasks.
 
 For an Antigravity follow-up, use `follow_up` with its returned `session_id`.
 
