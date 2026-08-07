@@ -84,12 +84,19 @@ Raw output is never piped bridge-to-bridge; the encouraged pipeline is
 Antigravity gathers → Claude Code distills → Codex reasons on the distilled
 version. Independent units are delegated in parallel.
 
+Only `antigravity` and `codex` calls run on a separate vendor's usage quota.
+Claude's own subagents (`Agent`/`Task` — Explore, general-purpose, etc.)
+still burn Claude's own limit, so the template treats "should this be a
+Claude subagent?" as a real decision, not a default — broad search and
+large-file reads route to Antigravity first.
+
 Plus orchestration rules: checkpoint the progress file after every
-delegation and every major decision; require `file:line` citations and
-spot-check them before recording results; on bridge failure retry once then
-fall back; and read the relevant `review-<topic>.md` first thing on a
-fresh/post-compaction session instead of reconstructing state from
-conversation history.
+delegation and every major decision; `/compact` after checkpointing and
+before the next unit, `/clear` when switching tasks; require `file:line`
+citations and spot-check them before recording results; on bridge failure
+retry once then fall back; and read the relevant `review-<topic>.md` first
+thing on a fresh/post-compaction session instead of reconstructing state
+from conversation history.
 
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file: context, per-unit status with cited
