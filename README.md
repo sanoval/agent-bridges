@@ -46,6 +46,22 @@ templates/
    **Connected**.
 4. Copy `templates/CLAUDE.md` into a target project's `CLAUDE.md` (or merge
    its rules into an existing one) to turn on delegation behavior there.
+5. (Team sharing) Instead of user-scope registration, a project can commit a
+   `.mcp.json` with the same two server entries so the config travels with
+   the repo.
+
+### Operational notes
+
+- **Cold start:** agy-bridge's first call in a session takes ~40–50 s;
+  subsequent calls in the same session are faster. A slow first call is not
+  a hang.
+- **Timeouts:** agy-bridge per-tool budgets are overridable via
+  `AGY_TIMEOUT_<TOOL_NAME>` (or `AGY_TIMEOUT` globally). Keep the MCP client
+  timeout ≥ the agy budget — the `timeout: 600000` in step 2 satisfies the
+  recommended minimum.
+- **Output cap:** agy-bridge truncates responses at `AGY_MAX_OUTPUT_CHARS`
+  (default 50,000). Delegation prompts should request structured findings
+  with `file:line` citations, never content dumps.
 
 ## Using the templates
 
@@ -55,20 +71,33 @@ Code:
 | Situation | Delegate to |
 |---|---|
 | Large file analysis, broad search, or web/docs lookup | Antigravity (`analyze_files`, `deep_search`, or `web_lookup`) |
+| Other heavy self-contained computation (mass summarization, large fixtures) | Antigravity (`delegate`) |
 | Cross-module bug tracing, focused review, test-failure analysis, implementation planning, or bounded refactoring | Codex (`codex`) with `sandbox: read-only` unless a write is explicitly delegated |
+| High-stakes decision (architecture, risky refactor, security-sensitive diff) | Codex **and** Antigravity (`adversarial_review`) — Claude Code reconciles disagreements |
 | Follow-up on Antigravity work | `follow_up` with the returned `session_id` |
 | Follow-up on Codex work | `codex-reply` with the returned `threadId` |
 
+Raw output is never piped bridge-to-bridge; the encouraged pipeline is
+Antigravity gathers → Claude Code distills → Codex reasons on the distilled
+version. Independent units are delegated in parallel.
+
 Plus orchestration rules: checkpoint the progress file after every
-delegation and every major decision, and read the relevant
-`review-<topic>.md` first thing on a fresh/post-compaction session instead
-of reconstructing state from conversation history.
+delegation and every major decision; require `file:line` citations and
+spot-check them before recording results; on bridge failure retry once then
+fall back; and read the relevant `review-<topic>.md` first thing on a
+fresh/post-compaction session instead of reconstructing state from
+conversation history.
 
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file: context, per-unit status with cited
 requirements and delegation session IDs, a gap list, a "failed approaches"
-log (so dead ends aren't rediscovered), and a "not yet done" list for the
-next session.
+log (so dead ends aren't rediscovered), a "not yet done" list for the
+next session, and an archive convention that keeps the file lean (completed
+units move to `review-<topic>-archive.md`).
+
+Note: the progress-file template uses Indonesian section headers, and the
+CLAUDE.md rules refer to them by exact name — the section names are
+load-bearing. If you translate one file, translate both.
 
 ## Verifying it works
 

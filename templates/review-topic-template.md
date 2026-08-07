@@ -19,8 +19,8 @@ Scope: <what this covers, what's explicitly excluded/deferred and why>
 
 ### Delegasi (jika ada)
 <provider: Antigravity atau Codex; tool dipakai; session_id untuk Antigravity
-follow_up atau threadId untuk Codex codex-reply; hasil singkat yang sudah
-diverifikasi>
+follow_up atau threadId untuk Codex codex-reply; hasil singkat — tandai setiap
+klaim VERIFIED (sitasi file:line sudah di-spot-check) atau UNVERIFIED>
 
 ### Gap list
 | # | Gap | Severity | Catatan |
@@ -40,3 +40,10 @@ diverifikasi>
 ## Belum dikerjakan (lanjutan sesi berikutnya)
 - [ ] <unit not yet started>
 - [ ] <unit explicitly skipped, with reason>
+
+---
+
+## Arsip
+Unit yang sudah SELESAI dan tidak lagi dirujuk oleh gap terbuka dipindahkan ke
+`review-<topic>-archive.md`, sisakan ringkasan satu baris di sini. File ini
+dibaca ulang setiap awal sesi — jaga tetap ramping.
