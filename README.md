@@ -1,8 +1,8 @@
 # agent-bridges
 
 Config and templates for pairing **Claude Code** with two MCP delegation
-bridges: **agy-bridge** for Antigravity (Gemini), and Codex's built-in MCP
-server. The goal: keep Claude Code's context window lean by sending large file
+bridges: **Antigravity** (Gemini, run via the `agy-bridge` MCP server) and
+Codex's built-in MCP server. The goal: keep Claude Code's context window lean by sending large file
 reads, repo-wide searches, web lookups, and second-opinion reviews to the
 appropriate second model, while Claude Code stays the single orchestrator.
 
@@ -19,8 +19,10 @@ investigation in its own context.
 - **One direction only.** Claude Code calls both bridges. Neither Antigravity
   nor Codex calls back into Claude Code or the other bridge — no bidirectional
   delegation and no ping-pong loops.
-- **Claude Code = MCP Host** (with an internal MCP client). **agy-bridge** and
-  **Codex MCP Server** are separate MCP servers exposed over JSON-RPC 2.0.
+- **Claude Code = MCP Host** (with an internal MCP client). **Antigravity**
+  (registered as the `antigravity` MCP server, running the `agy-bridge`
+  package) and **Codex MCP Server** are separate MCP servers exposed over
+  JSON-RPC 2.0.
 - **Session continuity.** Antigravity uses `follow_up` with its `session_id`.
   Codex uses `codex-reply` with the `threadId` returned by `codex`.
 
@@ -37,12 +39,13 @@ templates/
 1. Prerequisites: the `agy` CLI installed and authenticated; Node + npx
    available; and the `codex` CLI installed and authenticated.
 2. Register both MCP servers at user scope (available in every project on the
-   machine):
+   machine). The alias is `antigravity` — the `agy-bridge` npm package is
+   just what runs behind it:
    ```bash
-   claude mcp add-json -s user agy-bridge '{"command":"npx","args":["-y","agy-bridge"],"timeout":600000}'
+   claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"timeout":600000}'
    claude mcp add-json -s user codex '{"command":"codex","args":["mcp-server"],"timeout":600000}'
    ```
-3. Verify: `claude mcp list` should show **both** `agy-bridge` and `codex` as
+3. Verify: `claude mcp list` should show **both** `antigravity` and `codex` as
    **Connected**.
 4. Copy `templates/CLAUDE.md` into a target project's `CLAUDE.md` (or merge
    its rules into an existing one) to turn on delegation behavior there.
@@ -52,14 +55,14 @@ templates/
 
 ### Operational notes
 
-- **Cold start:** agy-bridge's first call in a session takes ~40–50 s;
+- **Cold start:** Antigravity's first call in a session takes ~40–50 s;
   subsequent calls in the same session are faster. A slow first call is not
   a hang.
-- **Timeouts:** agy-bridge per-tool budgets are overridable via
-  `AGY_TIMEOUT_<TOOL_NAME>` (or `AGY_TIMEOUT` globally). Keep the MCP client
-  timeout ≥ the agy budget — the `timeout: 600000` in step 2 satisfies the
-  recommended minimum.
-- **Output cap:** agy-bridge truncates responses at `AGY_MAX_OUTPUT_CHARS`
+- **Timeouts:** Antigravity per-tool budgets are overridable via the
+  underlying `agy-bridge` package's env vars, `AGY_TIMEOUT_<TOOL_NAME>` (or
+  `AGY_TIMEOUT` globally). Keep the MCP client timeout ≥ that budget — the
+  `timeout: 600000` in step 2 satisfies the recommended minimum.
+- **Output cap:** Antigravity truncates responses at `AGY_MAX_OUTPUT_CHARS`
   (default 50,000). Delegation prompts should request structured findings
   with `file:line` citations, never content dumps.
 
@@ -110,7 +113,7 @@ connected. A Codex delegation should return a `threadId`; use that value in a
 The delegation template supports this topology:
 
 ```text
-Claude Code -> Antigravity (agy-bridge)
+Claude Code -> Antigravity (antigravity MCP server, runs agy-bridge)
             -> Codex (codex mcp-server)
 ```
 
@@ -121,7 +124,8 @@ not a fork and does not include source code from its MCP dependencies.
 
 The Antigravity integration uses
 [agy-bridge](https://github.com/sshahzaiib/agy-bridge) by Shahzaib Akram as an
-external MCP dependency. `agy-bridge` is distributed under the MIT License.
+external MCP dependency, registered locally under the `antigravity` alias (see
+Setup). `agy-bridge` is distributed under the MIT License.
 
 ## License
 

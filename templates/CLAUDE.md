@@ -2,7 +2,8 @@
 
 You have two MCP delegation bridges:
 
-- `agy-bridge` delegates to Antigravity CLI (Gemini).
+- `antigravity` delegates to Antigravity CLI (Gemini), served by the
+  `agy-bridge` MCP server package.
 - `codex` delegates to Codex through `codex mcp-server`.
 
 Delegation keeps large content out of your context — only the result comes
