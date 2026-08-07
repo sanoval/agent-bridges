@@ -88,7 +88,11 @@ Only `antigravity` and `codex` calls run on a separate vendor's usage quota.
 Claude's own subagents (`Agent`/`Task` — Explore, general-purpose, etc.)
 still burn Claude's own limit, so the template treats "should this be a
 Claude subagent?" as a real decision, not a default — broad search and
-large-file reads route to Antigravity first.
+large-file reads route to Antigravity first. When a Claude subagent is
+still warranted, it defaults to the orchestrator's model; a cheaper model
+is opt-in, reserved for an established pattern of simple, parallelizable,
+cheaply-verified work — not a blanket default, since the work left for
+Claude subagents after bridge routing skews toward judgment, not mechanics.
 
 Plus orchestration rules: checkpoint the progress file after every
 delegation and every major decision; `/compact` after checkpointing and

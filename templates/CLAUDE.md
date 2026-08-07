@@ -23,9 +23,17 @@ task matches an Antigravity or Codex criterion below — broad search, reading
 large files, or repo-wide greps are Antigravity candidates
 (`analyze_files`/`deep_search`), not Explore candidates. Reserve Claude
 subagents for work that genuinely needs a tool, permission, or piece of
-session state only Claude Code has. If a Claude subagent is still the right
-choice for simple, mechanical work, configure it with a cheaper model in its
-agent definition rather than defaulting to the orchestrator's model.
+session state only Claude Code has.
+
+**Default Claude subagents to the orchestrator's model (e.g. Sonnet).**
+Because broad/mechanical work is already routed to the bridges above, what's
+left for Claude subagents is disproportionately judgment work — investigation,
+synthesis, decisions — where a weaker model risks wrong output that then
+needs re-verification or redoing, erasing any savings. Only assign a cheaper
+model (e.g. Haiku) to a subagent when there's an established, recurring
+pattern of simple, parallelizable, cheaply-verified work (e.g. the same
+mechanical check repeated across N files) — never as a default, and never
+for a one-off task you haven't seen repeat.
 
 ## Provider selection
 
