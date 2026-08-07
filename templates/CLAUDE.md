@@ -13,6 +13,20 @@ The distilled pipeline is different and encouraged: Antigravity gathers
 broadly, you (Claude Code) condense the findings, and the condensed version
 goes into a Codex prompt. You are always the filter between bridges.
 
+## Claude subagents are not bridge delegation
+
+Your own subagents (the `Agent`/`Task` tool — `Explore`, `general-purpose`,
+etc.) still run as Claude and still count against Claude's own usage limit.
+Only `antigravity` and `codex` calls run on a separate vendor's quota and
+actually relieve it. Before spawning a Claude subagent, check whether the
+task matches an Antigravity or Codex criterion below — broad search, reading
+large files, or repo-wide greps are Antigravity candidates
+(`analyze_files`/`deep_search`), not Explore candidates. Reserve Claude
+subagents for work that genuinely needs a tool, permission, or piece of
+session state only Claude Code has. If a Claude subagent is still the right
+choice for simple, mechanical work, configure it with a cheaper model in its
+agent definition rather than defaulting to the orchestrator's model.
+
 ## Provider selection
 
 Use Antigravity tools when the task is primarily broad or retrieval-oriented:
@@ -67,7 +81,9 @@ progress file. Do not use `adversarial_review` as the sole reviewer for code
 Codex wrote, or vice versa, without noting which model produced what.
 
 Do NOT delegate: small single-file edits, questions you can answer from
-context already loaded, or tasks needing tools only you have.
+context already loaded, or tasks needing tools only you have. And do not
+substitute a Claude subagent for a bridge delegation that fits — see
+"Claude subagents are not bridge delegation" above.
 
 ## Example delegation prompts
 
@@ -113,6 +129,13 @@ Codex `codex` (read-only):
   delegated, its provider, the returned session id or thread id, and the
   verified outcome. Do this before starting the next unit of work — do not
   wait until the session ends.
+- **Compact after checkpointing, before the next unit.** Delegation keeps
+  raw content out of context, but the orchestrator session still accumulates
+  delegation summaries, checkpoint writes, and conversation history. Once a
+  unit is checkpointed to the progress file, run `/compact` before starting
+  the next unit; run `/clear` when switching to an unrelated task. The
+  progress file — not conversation history — is the source of truth across
+  that boundary.
 - **Checkpoint after every major decision.** If you choose one approach
   over another, or rule an approach out, write it to the progress file's
   "Pendekatan yang sudah dicoba & gagal" section immediately, with the
