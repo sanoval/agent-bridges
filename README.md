@@ -2,23 +2,40 @@
 
 Config and templates for pairing **Claude Code** with two MCP delegation
 bridges: **Antigravity** (Gemini, run via the `agy-bridge` MCP server) and
-Codex's built-in MCP server. The goal: keep Claude Code's context window lean by sending large file
-reads, repo-wide searches, web lookups, and second-opinion reviews to the
-appropriate second model, while Claude Code stays the single orchestrator.
+Codex's built-in MCP server. The goal: route each unit of work to whichever
+provider is best suited and best positioned on quota to handle it — broad
+retrieval, bounded reasoning, or a second opinion — while Claude Code stays
+the single agent harness with sole authority to execute, verify, and
+integrate the result. A lean context window is a consequence of that
+routing, not the goal itself.
 
 ## Why
 
-Claude Code's context is the scarce resource. Reading a 2,000-line file,
-diffing a large repo, or running a second-opinion review all burn it fast —
-and often the *content* isn't needed in context, only the *answer*. The two
-bridges return the delegated result without making Claude Code carry the full
-investigation in its own context.
+Sending everything through one model, even when it's "free" against that
+model's own limit, is still wasteful if a different provider is better
+suited or has more headroom left. Antigravity (broad retrieval, second
+opinions) and Codex (bounded, deep code reasoning) each cover a different
+class of work well; the two bridges let Claude Code route a task to whichever
+one fits, instead of doing everything itself or guessing.
+
+Claude Code stays the harness because it's the only party with tool access,
+repo/session state, and write permission — a bridge can investigate and
+recommend, but only Claude Code can act on the result. That also means Claude
+Code owns verification: a delegated finding is not trusted until checked, and
+is never the sole basis for an edit without that check (see "Parallelism,
+failures, and verification" in `templates/CLAUDE.md`). Reading a 2,000-line
+file, diffing a large repo, or running a second-opinion review all burn
+context fast, and often the *content* isn't needed, only the *answer* — so as
+a side effect, the bridges also return the delegated result without making
+Claude Code carry the full investigation in its own context.
 
 ## Architecture
 
 - **One direction only.** Claude Code calls both bridges. Neither Antigravity
   nor Codex calls back into Claude Code or the other bridge — no bidirectional
-  delegation and no ping-pong loops.
+  delegation and no ping-pong loops. This follows directly from Claude Code
+  being the harness: execution authority has to stay at one point, not just
+  avoiding ping-pong for its own sake.
 - **Claude Code = MCP Host** (with an internal MCP client). **Antigravity**
   (registered as the `antigravity` MCP server, running the `agy-bridge`
   package) and **Codex MCP Server** are separate MCP servers exposed over
@@ -127,6 +144,16 @@ The delegation template supports this topology:
 Claude Code -> Antigravity (antigravity MCP server, runs agy-bridge)
             -> Codex (codex mcp-server)
 ```
+
+This is the current PoC: route by task-fit at the semantic layer and see how
+far it goes before quota pressure becomes the binding constraint. If it turns
+out the bottleneck is provider-level quota exhaustion rather than routing
+efficiency — i.e. this setup routes correctly but a bridge still runs out of
+headroom — a proxy like [9Router](https://9router.com/) (account/tier
+fallback across providers, sitting underneath a bridge's own API calls) is
+the next thing to evaluate. It solves a different problem (quota/cost
+failover) than this repo does (task-to-provider fit) and would sit below,
+not replace, this routing layer.
 
 ## Acknowledgements
 
