@@ -35,47 +35,32 @@ pattern of simple, parallelizable, cheaply-verified work (e.g. the same
 mechanical check repeated across N files) — never as a default, and never
 for a one-off task you haven't seen repeat.
 
-## Provider selection
+## Provider selection: Macro-Delegation vs Micro-Delegation
 
-Use Antigravity tools when the task is primarily broad or retrieval-oriented:
+Both bridges possess high-capacity context limits (Antigravity/Gemini has a 1M–2M token context window; Codex has 128k+ tokens with deep reasoning). **Do not micro-delegate single files or small isolated questions.** Prefer **Macro-Delegation**: package entire directories, whole feature modules, documentation specs, and full log dumps into a single high-payload request.
 
-- **Any file >200 lines** you'd otherwise read → `analyze_files`
-- **More than 3 files** in one analysis/comparison → `analyze_files`
-- **Git history or repo-wide searches** (git log/diff/blame, broad greps) → `deep_search`
-- **Web/documentation lookups** → `web_lookup`
-- **Other heavy, self-contained computation** that fits neither bridge's
-  specialized tools (mass summarization, generating large fixtures) →
-  `delegate`
+Use Antigravity tools for broad context ingestion, whole-module analysis, and retrieval:
 
-Every Antigravity prompt must state: the exact question to answer, the output
-format you want back (findings list, table, verdict + evidence), and `cwd` set
-to the project root. For `deep_search`, also state what counts as a hit.
-Always ask for `file:line` citations.
+- **Whole-module & multi-file directory ingestion** (`src/feature/**/*`, `tests/feature/*`, `docs/*`) → `analyze_files`. Ingest all relevant context in one call rather than making multiple single-file passes.
+- **Git history, repo-wide architecture sweeps, or codebase-wide pattern matching** → `deep_search`.
+- **Web/documentation lookups & broad API exploration** → `web_lookup`.
+- **Heavy self-contained computation or mass log/trace analysis** (e.g. 50k+ lines of stack traces, generating massive fixtures) → `delegate`.
 
-Use Codex when the task needs deep, bounded code reasoning rather than broad
-information retrieval:
+Every Antigravity prompt must specify:
+1. The full scope of files/directories to ingest (`cwd` set to project root).
+2. The exact question or audit goals.
+3. The expected **high-density structured output** (exhaustive gap matrix, edge-case table, or structured verdict with `file:line` citations).
 
-- **Trace a bug across interacting modules** → `codex` with the symptom,
-  suspected entry points, and the exact question to resolve
-- **Assess an implementation plan or a non-obvious technical trade-off** →
-  `codex` with the proposed approach, constraints, and decision criteria
-- **Review a focused diff or a bounded set of changed files** → `codex` with
-  the review scope and the failure modes to look for
-- **Investigate test failures, edge cases, invariants, or regression risk** →
-  `codex` with the failing command/output and relevant files
-- **Design a targeted implementation or refactor** that touches several
-  related components → `codex` with the required behavior and file scope
-- Use `sandbox: read-only` by default for each of the above, with a precise
-  prompt that asks for findings, evidence, and recommended next steps
-- **Follow-up question on Codex work** → `codex-reply` with the returned
-  `threadId` (never resend the context)
-- **A Codex edit is explicitly desired** → use `codex` with the requested
-  writable sandbox only after Claude Code states the exact file scope
+Use Codex for deep, bounded code reasoning, logic synthesis, and heavy implementation:
 
-Do not use Codex merely to read a large file, perform a broad repo search, or
-look up documentation; use Antigravity for those retrieval-oriented tasks.
+- **Full-feature refactoring & architectural logic synthesis** → `codex` with the full requirement spec, module boundaries, and implementation targets.
+- **Cross-module bug tracing & invariant analysis** → `codex` with the symptom, stack trace, entry points, and suspected code paths.
+- **Assessment of complex trade-offs or implementation plans** → `codex` with proposed design, constraints, and decision criteria.
+- **Heavy code generation or multi-file edits** → `codex` with `sandbox: workspace` (or writable sandbox), delegating the end-to-end implementation and test verification to Codex before returning the summary diff to Claude Code.
+- Use `sandbox: read-only` by default when doing pure analysis/review; switch to writable sandbox when full code implementation is delegated.
+- **Follow-up on Codex work** → `codex-reply` with the returned `threadId` (never resend the context).
 
-For an Antigravity follow-up, use `follow_up` with its returned `session_id`.
+Do not use Codex merely to read a file or perform a broad search; route retrieval and massive ingestion to Antigravity. For Antigravity follow-ups, use `follow_up` with `session_id`.
 
 ## Cross-model second opinions (`adversarial_review`)
 
@@ -88,25 +73,26 @@ disagreement yourself before deciding, and record the resolution in the
 progress file. Do not use `adversarial_review` as the sole reviewer for code
 Codex wrote, or vice versa, without noting which model produced what.
 
-Do NOT delegate: small single-file edits, questions you can answer from
-context already loaded, or tasks needing tools only you have. And do not
-substitute a Claude subagent for a bridge delegation that fits — see
-"Claude subagents are not bridge delegation" above.
+Do NOT delegate: trivial single-line edits, questions answered by already-loaded
+context, or tasks needing local tools only you have. Do not substitute a Claude
+subagent for a bridge delegation that fits — see "Claude subagents are not bridge
+delegation" above.
 
 ## Example delegation prompts
 
-Antigravity `analyze_files`:
-> Analyze `src/billing/invoice.py` and `src/billing/ledger.py`. Question: can
-> `post_invoice` ever write a ledger entry without an invoice row committing?
-> Output: verdict, then evidence as a list of `file:line` citations. cwd:
-> /path/to/repo
+Antigravity `analyze_files` (Macro-Delegation Ingestion):
+> Ingest all files under `src/billing/`, `tests/billing/`, and `docs/billing-spec.md`.
+> Question: Is there any potential race condition where `post_invoice` writes a ledger entry
+> without a committed invoice row? Audit all payment retry paths and idempotency keys.
+> Output: High-density findings report with a summary verdict, edge-case analysis matrix,
+> and evidence listed as `file:line` citations. cwd: /path/to/repo
 
-Codex `codex` (read-only):
-> Symptom: `test_refund_idempotency` fails intermittently with a duplicate-key
-> error. Suspected entry points: `RefundService.process` and the retry
-> decorator in `src/common/retry.py`. Question: identify the race and propose
-> the minimal fix. Return findings with `file:line` evidence and recommended
-> next steps. sandbox: read-only
+Codex `codex` (Deep Multi-file Reasoning / Implementation):
+> Objective: Refactor the refund idempotency logic across `src/billing/refund.py` and
+> `src/common/retry.py`. Symptom: `test_refund_idempotency` fails intermittently under high concurrency.
+> Task: Analyze the race condition, implement the minimal lock-free retry fix across both files,
+> and verify by running tests. Return a summary of root cause, exact changes made, and test status.
+> sandbox: workspace
 
 ## Parallelism, failures, and verification
 

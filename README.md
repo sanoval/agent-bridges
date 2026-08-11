@@ -80,8 +80,9 @@ templates/
   `AGY_TIMEOUT` globally). Keep the MCP client timeout ≥ that budget — the
   `timeout: 600000` in step 2 satisfies the recommended minimum.
 - **Output cap:** Antigravity truncates responses at `AGY_MAX_OUTPUT_CHARS`
-  (default 50,000). Delegation prompts should request structured findings
-  with `file:line` citations, never content dumps.
+  (default 50,000). Prompts should request high-density, structured analytical findings
+  with `file:line` citations (e.g. edge-case matrices, gap tables) rather than unformatted file dumps.
+- **Macro-Delegation strategy:** Both Antigravity (Gemini, 1M–2M context) and Codex (128k+ context with deep reasoning) possess massive token capacity. Delegation prompts should send whole feature packages, complete module directories, full spec docs, or entire trace logs at once ("Macro-Delegation") rather than fragmenting work into single-file micro-delegations.
 
 ## Using the templates
 
@@ -90,15 +91,15 @@ Code:
 
 | Situation | Delegate to |
 |---|---|
-| Large file analysis, broad search, or web/docs lookup | Antigravity (`analyze_files`, `deep_search`, or `web_lookup`) |
+| Whole-module/directory ingestion, broad architecture audit, large log analysis, or web/docs lookup | Antigravity (`analyze_files`, `deep_search`, or `web_lookup`) in a single high-payload call |
 | Other heavy self-contained computation (mass summarization, large fixtures) | Antigravity (`delegate`) |
-| Cross-module bug tracing, focused review, test-failure analysis, implementation planning, or bounded refactoring | Codex (`codex`) with `sandbox: read-only` unless a write is explicitly delegated |
+| Cross-module bug tracing, focused review, test-failure analysis, full-feature implementation planning, or bounded refactoring | Codex (`codex`) with `sandbox: read-only` (or `sandbox: workspace` for end-to-end code generation) |
 | High-stakes decision (architecture, risky refactor, security-sensitive diff) | Codex **and** Antigravity (`adversarial_review`) — Claude Code reconciles disagreements |
 | Follow-up on Antigravity work | `follow_up` with the returned `session_id` |
 | Follow-up on Codex work | `codex-reply` with the returned `threadId` |
 
 Raw output is never piped bridge-to-bridge; the encouraged pipeline is
-Antigravity gathers → Claude Code distills → Codex reasons on the distilled
+Antigravity gathers (via bulk ingestion) → Claude Code distills → Codex reasons on the distilled
 version. Independent units are delegated in parallel.
 
 Only `antigravity` and `codex` calls run on a separate vendor's usage quota.
