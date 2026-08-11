@@ -4,6 +4,10 @@ Tanggal mulai: <date>
 Repo: <repo name/path>
 Scope: <what this covers, what's explicitly excluded/deferred and why>
 
+## Delegation tally
+Antigravity: <N> calls | Codex: <N> calls
+(Updated at every checkpoint. Used only to break ties in the review/second-opinion swap zone — see "Balancing the swap zone" in templates/CLAUDE.md.)
+
 ## Konteks
 <why this task exists, what the overall scope is>
 

@@ -73,6 +73,30 @@ disagreement yourself before deciding, and record the resolution in the
 progress file. Do not use `adversarial_review` as the sole reviewer for code
 Codex wrote, or vice versa, without noting which model produced what.
 
+## Balancing the swap zone
+
+Core ingestion (Antigravity) and core implementation (Codex) are never
+balanced — they stay strictly task-fit routed, even if that skews usage
+toward one bridge. The **only** swap zone is routine reviews / second
+opinions: work that fits either bridge equally well. For that zone alone,
+use the progress file's Delegation tally (see
+`templates/review-topic-template.md`) to break ties instead of defaulting
+to Codex every time:
+
+- If the tally shows one bridge ahead of the other by more than 2x (with a
+  floor of at least 3 calls on the leading side, so an early 1-vs-0 doesn't
+  trigger churn), route the next routine review to the less-used bridge.
+- If counts are roughly even, keep today's default (Codex for routine
+  reviews).
+- High-stakes reviews (architecture, risky refactor, security-sensitive
+  diff) always use **both** bridges via `adversarial_review` regardless of
+  tally — balancing changes which single bridge handles a *routine* review,
+  it never reduces coverage on high-stakes work.
+- This never adds a bridge call that wasn't already going to happen — it
+  only changes which bridge gets picked.
+- Increment the tally at the same point the existing "checkpoint after
+  every delegation" rule already fires — no separate step.
+
 Do NOT delegate: trivial single-line edits, questions answered by already-loaded
 context, or tasks needing local tools only you have. Do not substitute a Claude
 subagent for a bridge delegation that fits — see "Claude subagents are not bridge
