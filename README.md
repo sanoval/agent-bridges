@@ -102,6 +102,15 @@ Raw output is never piped bridge-to-bridge; the encouraged pipeline is
 Antigravity gathers (via bulk ingestion) → Claude Code distills → Codex reasons on the distilled
 version. Independent units are delegated in parallel.
 
+Core ingestion and core implementation stay strictly task-fit routed and are
+never balanced. The one exception is routine reviews / second opinions — a
+genuine swap zone where either bridge fits. There, the template tracks a
+running Delegation tally in the progress file and steers ties toward
+whichever bridge has done less work, instead of always defaulting to Codex.
+High-stakes reviews still always use both bridges via `adversarial_review`,
+unaffected by the tally. See "Balancing the swap zone" in
+`templates/CLAUDE.md`.
+
 Only `antigravity` and `codex` calls run on a separate vendor's usage quota.
 Claude's own subagents (`Agent`/`Task` — Explore, general-purpose, etc.)
 still burn Claude's own limit, so the template treats "should this be a
