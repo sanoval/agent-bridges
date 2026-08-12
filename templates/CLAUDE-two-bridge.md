@@ -4,8 +4,8 @@
 
 The import line above pulls in this project's shared memory — see
 `templates/AGENTS.md` for what belongs there instead of here. Antigravity
-reads the same content via a `GEMINI.md` symlink to `AGENTS.md`; nothing
-below this point needs duplicating into either file.
+reads `AGENTS.md` natively too, no symlink needed; nothing below this
+point needs duplicating into either file.
 
 Use this variant instead of `templates/CLAUDE.md` when only two bridges are
 available — no Codex subscription, only Claude Code and Antigravity. Same

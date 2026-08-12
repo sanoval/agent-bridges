@@ -11,9 +11,10 @@ in this pipeline, without being duplicated three times:
   `CLAUDE.md` (see `templates/CLAUDE.md` / `templates/CLAUDE-two-bridge.md`)
   — everything below that import line in `CLAUDE.md` is delegation/pipeline
   rules that only make sense for the orchestrator and stay out of this file.
-- **Antigravity** (`agy`) reads `GEMINI.md`, not `AGENTS.md` — make
-  `GEMINI.md` a symlink to this file (`ln -s AGENTS.md GEMINI.md`) rather
-  than a second copy, so there is exactly one file to keep current.
+- **Antigravity** (`agy`) reads this file natively too — since the
+  Antigravity CLI migration off Gemini CLI, `agy` parses and enforces both
+  `GEMINI.md` and `AGENTS.md` in a directory with no configuration or
+  symlink needed.
 
 Editing this file once updates what all three harnesses know. Do **not**
 put delegation/pipeline/model-routing rules here — those live in

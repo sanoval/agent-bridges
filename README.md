@@ -76,12 +76,14 @@ drifting apart. They don't need to, because the three formats compose:
 - **Claude Code** reads `CLAUDE.md`, and `templates/CLAUDE.md` /
   `templates/CLAUDE-two-bridge.md` both open with an `@AGENTS.md` import
   line, so Claude Code pulls in the same content Codex reads directly.
-- **Antigravity** (`agy`) reads `GEMINI.md`, which has no native import
-  syntax — make it a symlink to `AGENTS.md` (`ln -s AGENTS.md GEMINI.md`)
-  instead of a second file to maintain.
+- **Antigravity** (`agy`) reads `AGENTS.md` natively too — as of the
+  Antigravity CLI migration from Gemini CLI, `agy` parses and enforces
+  both `GEMINI.md` and `AGENTS.md` in a directory with no configuration
+  needed. No symlink required; just make sure the project has an
+  `AGENTS.md`.
 
 The result: edit `AGENTS.md` once, and all three harnesses see the change
-— Codex directly, Claude Code via import, Antigravity via symlink. Put
+— Codex directly, Claude Code via import, Antigravity natively. Put
 project facts (build/test commands, code style, directory layout, things
 not to touch) in `AGENTS.md`; keep delegation/pipeline/model-routing rules
 in `CLAUDE.md` below the import line, since Codex and Antigravity executing
@@ -169,10 +171,10 @@ structural gap in Codex, not a format mismatch this repo can paper over.
    to turn on the role pipeline there. Both start with an `@AGENTS.md`
    import — do not strip that line.
 6. Centralize project memory: copy `templates/AGENTS.md` into the target
-   project's root `AGENTS.md` (or merge it into an existing one — Codex
-   already reads this file natively if the project has one), then symlink
-   `GEMINI.md` to it: `ln -s AGENTS.md GEMINI.md`. See "Centralizing memory
-   across harnesses" above.
+   project's root `AGENTS.md` (or merge it into an existing one — Codex and
+   Antigravity both already read this file natively if the project has
+   one, no extra step needed). See "Centralizing memory across harnesses"
+   above.
 7. Centralize skills: create (or move existing custom skills into) a
    `skills/<name>/SKILL.md` directory at the project root, then symlink
    both harnesses' discovery paths to it:
@@ -183,9 +185,8 @@ structural gap in Codex, not a format mismatch this repo can paper over.
    `.mcp.json` with the same server entries for its mode (and, for
    three-bridge mode, a checked-in `codex` profile config or documented
    setup step for it) so the config travels with the repo. Commit
-   `AGENTS.md`, the `GEMINI.md` symlink, `skills/`, and the `.claude/skills`
-   / `.agents/skills` symlinks too — all of it is meant to be checked in,
-   not local-only.
+   `AGENTS.md`, `skills/`, and the `.claude/skills` / `.agents/skills`
+   symlinks too — all of it is meant to be checked in, not local-only.
 
 ### Operational notes
 
