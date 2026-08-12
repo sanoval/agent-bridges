@@ -59,10 +59,49 @@ Code carry the full investigation in its own context.
 
 ```
 templates/
+  AGENTS.md                  — shared project memory, read by all three harnesses (see "Centralizing memory" below)
   CLAUDE.md                  — three-bridge mode: drop-in delegation + checkpoint rules (Antigravity + codex-qa + codex-security)
   CLAUDE-two-bridge.md       — two-bridge mode: same pipeline, no Codex subscription (Antigravity only, QA/Security via adversarial_review lenses)
   review-topic-template.md   — structure for a persistent review-<topic>.md progress file, shared by both modes
 ```
+
+## Centralizing memory across harnesses
+
+Each harness reads its own memory file at session/subprocess start, and
+without coordination that becomes three copies of the same project facts
+drifting apart. They don't need to, because the three formats compose:
+
+- **Codex** reads `AGENTS.md` natively — no configuration needed, it just
+  looks for that file.
+- **Claude Code** reads `CLAUDE.md`, and `templates/CLAUDE.md` /
+  `templates/CLAUDE-two-bridge.md` both open with an `@AGENTS.md` import
+  line, so Claude Code pulls in the same content Codex reads directly.
+- **Antigravity** (`agy`) reads `GEMINI.md`, which has no native import
+  syntax — make it a symlink to `AGENTS.md` (`ln -s AGENTS.md GEMINI.md`)
+  instead of a second file to maintain.
+
+The result: edit `AGENTS.md` once, and all three harnesses see the change
+— Codex directly, Claude Code via import, Antigravity via symlink. Put
+project facts (build/test commands, code style, directory layout, things
+not to touch) in `AGENTS.md`; keep delegation/pipeline/model-routing rules
+in `CLAUDE.md` below the import line, since Codex and Antigravity executing
+as Coder/QA/Security don't need to know how Claude Code decided to call
+them. See `templates/AGENTS.md` for the section structure.
+
+**Skills and plugins don't centralize the same way — this is a real,
+unresolved gap, not solved by this repo.** Claude Code Skills (`SKILL.md`,
+auto-triggered by description) and marketplace plugins are a Claude
+Code-specific runtime feature; Codex has no equivalent beyond AGENTS.md and
+MCP tools. Antigravity's `agy` CLI does appear to have its own native
+skill/plugin/hook system (`agy inspect` reportedly lists them), but its
+file format is unverified here — worth investigating directly before
+assuming it's portable to or from Claude Code's format. Until that's
+confirmed, the practical workaround is to keep skill-equivalent playbooks
+as plain markdown that Claude Code loads as real Skills, and have Claude
+Code (the party composing every delegation prompt anyway) paste the
+relevant playbook content into Antigravity/Codex calls when it applies —
+centralizing authorship and storage, not runtime auto-loading, for the two
+harnesses that don't have a skill loader of their own.
 
 ## Which mode do I need?
 
@@ -117,11 +156,19 @@ templates/
 5. Copy whichever template matches your mode — `templates/CLAUDE.md`
    (three-bridge) or `templates/CLAUDE-two-bridge.md` (two-bridge) — into a
    target project's `CLAUDE.md` (or merge its rules into an existing one)
-   to turn on the role pipeline there.
-6. (Team sharing) Instead of user-scope registration, a project can commit a
+   to turn on the role pipeline there. Both start with an `@AGENTS.md`
+   import — do not strip that line.
+6. Centralize project memory: copy `templates/AGENTS.md` into the target
+   project's root `AGENTS.md` (or merge it into an existing one — Codex
+   already reads this file natively if the project has one), then symlink
+   `GEMINI.md` to it: `ln -s AGENTS.md GEMINI.md`. See "Centralizing memory
+   across harnesses" above.
+7. (Team sharing) Instead of user-scope registration, a project can commit a
    `.mcp.json` with the same server entries for its mode (and, for
    three-bridge mode, a checked-in `codex` profile config or documented
-   setup step for it) so the config travels with the repo.
+   setup step for it) so the config travels with the repo. Commit
+   `AGENTS.md` and the `GEMINI.md` symlink too — both are meant to be
+   checked in, not local-only.
 
 ### Operational notes
 

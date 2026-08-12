@@ -1,4 +1,13 @@
+@AGENTS.md
+
 # Delegation rules: role-based pipeline (Analyze → Plan/Review → Coder → QA + Security → Release)
+
+The import line above pulls in this project's shared memory — see
+`templates/AGENTS.md` for what belongs there instead of here. Everything
+below is delegation/pipeline rules specific to you (Claude Code) as
+orchestrator; Codex and Antigravity read `AGENTS.md`/`GEMINI.md` directly
+and never see this file, so nothing here needs to be (or should be)
+duplicated into it.
 
 You have three MCP delegation bridges. `antigravity` plays three fixed roles
 at different pipeline stages (all same server, same model); `codex-qa` and
