@@ -1,29 +1,42 @@
-# Delegation rules: role-based pipeline (Planner/Reviewer → Coder → QA + Security)
+# Delegation rules: role-based pipeline (Analyze → Plan/Review → Coder → QA + Security → Release)
 
-You have three MCP delegation bridges, each pinned to a fixed role and a
-fixed model. Roles are **not** task-fit swapped the way earlier revisions of
-this template did it — each bridge always plays the same part:
+You have three MCP delegation bridges. `antigravity` plays three fixed roles
+at different pipeline stages (all same server, same model); `codex-qa` and
+`codex-security` each play one fixed role. Roles are **not** task-fit
+swapped the way earlier revisions of this template did it — each role
+always does the same job, at the same point in the pipeline:
 
 | Role | Bridge (MCP server) | Model | Job |
 |---|---|---|---|
-| Planner & Code Reviewer | You (Claude Code) | Chosen by you, per plan — no fixed pin | Plan the work, hand it to Antigravity to implement, then review the resulting diff before it goes to QA/Security |
+| Document Analyzer | `antigravity` | Gemini 3.6 Flash | Ingests specs/PRDs/docs before planning and produces a requirement matrix |
+| Planner & Code Reviewer | You (Claude Code) | Chosen by you, per plan — no fixed pin | Plan the work from the requirement matrix, hand it to Antigravity to implement, then review the resulting diff before it goes to QA/Security |
 | Coder / Executor | `antigravity` | Gemini 3.6 Flash | Implements the plan: writes/edits code, runs it, iterates until it works |
 | QA Engineer | `codex-qa` | 5.6 Terra | Tests the diff: correctness, edge cases, regressions |
 | Security Engineer | `codex-security` | 5.6 Sol | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. |
+| Release / Changelog Writer | `antigravity` | Gemini 3.6 Flash | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
 
 You are the only party with repo write access to *decide* — Antigravity
-writes the code, but you review it before it ships, and QA/Security only
-ever see a diff you've already looked at once.
+writes the code (and the docs), but you review it before it ships, and
+QA/Security only ever see a diff you've already looked at once.
 
 ## Pipeline
 
+0. **Analyze** (`antigravity`, Document Analyzer role, model
+   `Gemini 3.6 Flash`). When the unit starts from a spec/PRD/doc rather than
+   a self-evident bug or already-clear ask, send Antigravity the full
+   doc set with `analyze_files` or `web_lookup` and ask for a structured
+   requirement matrix (requirement → source citation → open questions).
+   Skip this step for units with no doc input to ingest.
 1. **Plan** (you). Break the task into a concrete implementation spec:
-   files/modules touched, the change itself, acceptance criteria. This is
-   your job alone — do not delegate planning to Antigravity or Codex.
-2. **Implement** (`antigravity`, model `Gemini 3.6 Flash`). Send the full
-   plan plus every file/module it touches in one call — see
+   files/modules touched, the change itself, acceptance criteria — using
+   the requirement matrix from step 0 if there was one. This is your job
+   alone — do not delegate planning to Antigravity or Codex.
+2. **Implement** (`antigravity`, Coder role, model `Gemini 3.6 Flash`).
+   Send the full plan plus every file/module it touches in one call — see
    "Macro-Delegation" below. Antigravity does the actual edit/execution;
-   use a writable/execution tool call, not a read-only analysis one.
+   use a writable/execution tool call, not a read-only analysis one. Start
+   a **new** Antigravity session for this call rather than continuing the
+   Analyze session — see "Session continuity" for why.
 3. **Review** (you). Read the resulting diff yourself before it goes
    further. This is your Code Reviewer duty — catch anything you wouldn't
    want a QA/Security pass to have to discover for you, and reject/send
@@ -38,6 +51,12 @@ ever see a diff you've already looked at once.
    Antigravity with the finding attached for larger ones) before you
    consider the unit done. Disagreement between QA and Security about
    priority is yours to resolve, not theirs.
+6. **Release notes** (`antigravity`, Release Writer role, model
+   `Gemini 3.6 Flash`). Once a unit is accepted, send the final diff plus
+   the plan to Antigravity to draft the changelog entry / doc update. This
+   is drafting only — you still review and commit it yourself, same as any
+   other Antigravity output. Also a new session, not a continuation of the
+   Coder session.
 
 Never let Antigravity call Codex directly, or vice versa — you are always
 the one relaying the diff between roles. No bidirectional delegation, no
@@ -60,12 +79,17 @@ Both bridges have high-capacity context (Antigravity/Gemini: 1M–2M tokens;
 Codex: 128k+ tokens). Package a whole plan plus every file it touches into a
 single high-payload call rather than fragmenting into single-file requests.
 
-Every call to Antigravity must specify:
-1. The full implementation plan (from step 1) and every file/directory it
-   touches (`cwd` set to project root).
-2. Acceptance criteria — what "done" looks like, including any tests to run.
-3. `model: "Gemini 3.6 Flash"` explicitly on the call (do not rely on a
-   default — see Setup for why).
+Every call to Antigravity must specify `model: "Gemini 3.6 Flash"`
+explicitly (do not rely on a default — see Setup for why), plus, depending
+on which role it's playing:
+
+- **Document Analyzer:** every doc/spec/PRD relevant to the unit in one
+  call (`cwd` set to project root) and the exact requirement question to
+  answer.
+- **Coder:** the full implementation plan (from step 1) and every
+  file/directory it touches, plus acceptance criteria — what "done" looks
+  like, including any tests to run.
+- **Release Writer:** the final diff and the plan it implements.
 
 Every call to `codex-qa` or `codex-security` must specify:
 1. The diff (or the touched files, if the diff alone lacks context) plus the
@@ -81,7 +105,14 @@ Each bridge is a separate MCP server process with its own session/thread
 namespace — do not mix them up:
 
 - Antigravity: `follow_up` with the `session_id` the `antigravity` server
-  returned.
+  returned, **but only for follow-ups within the same role**. Analyze,
+  Coder, and Release Writer are unrelated conversations even though they
+  share one server and one model — start a fresh (non-`follow_up`) call
+  when the pipeline moves from one role to the next, so Antigravity's
+  context doesn't drag Document-Analyzer framing into a Coder call or
+  vice versa. Only use `follow_up` to continue the *same* role's work
+  (e.g. Antigravity iterating on its own implementation after a test
+  failure).
 - QA: `codex-reply` with the `threadId` the `codex-qa` server returned.
 - Security: `codex-reply` with the `threadId` the `codex-security` server
   returned. A `codex-security` threadId is not valid on `codex-qa` and vice
@@ -102,6 +133,14 @@ already-loaded context, or tasks needing local tools only you have.
 
 ## Example delegation prompts
 
+Antigravity `analyze_files` (Document Analyzer):
+> Ingest `docs/billing-spec.md`, `docs/refund-policy.md`, and the linked
+> PRD under `docs/prd/refund-idempotency.md`. Question: what are the
+> concrete, testable requirements for idempotent refund processing? Output:
+> a requirement matrix — requirement, source `file:line` citation, and any
+> open question the spec doesn't resolve. model: "Gemini 3.6 Flash".
+> cwd: /path/to/repo
+
 Antigravity `delegate` (Implementation):
 > Plan: add idempotency key checking to `post_invoice` in `src/billing/refund.py`
 > per the acceptance criteria below. Touch: `src/billing/refund.py`,
@@ -121,6 +160,13 @@ Antigravity `delegate` (Implementation):
 > bypass, unsafe deserialization, secret handling, race conditions with
 > security impact? Output: severity-ranked findings table with `file:line`
 > citations.
+
+Antigravity `delegate` (Release Writer):
+> Diff: <paste accepted diff>. Plan/acceptance criteria it implements:
+> <paste from step 1>. Draft: a changelog entry (one or two lines, user-
+> facing framing) and any doc updates the diff makes stale. Output: the
+> drafted text plus a list of files it should replace/append to — I will
+> review and commit it myself. model: "Gemini 3.6 Flash".
 
 ## Parallelism, failures, and verification
 
@@ -144,11 +190,13 @@ Antigravity `delegate` (Implementation):
   `codex-qa`, and `codex-security`. Never configure or invoke a path where
   any bridge calls Claude Code or another bridge.
 - **Checkpoint the progress file after every pipeline step.** Immediately
-  after Implement, Review, QA, or Security completes and you've verified the
-  result, update the active `review-<topic>.md` progress file (see
-  `templates/review-topic-template.md`) with: which step, which bridge/role,
-  the returned session/thread id, and the verified outcome. Do this before
-  starting the next unit of work.
+  after Analyze, Implement, Review, QA, Security, or Release Notes completes
+  and you've verified the result, update the active `review-<topic>.md`
+  progress file (see `templates/review-topic-template.md`) with: which step,
+  which role (spell out the Antigravity role — Analyzer/Coder/Release
+  Writer — since all three share one server in the tally), the returned
+  session/thread id, and the verified outcome. Do this before starting the
+  next unit of work.
 - **Compact after checkpointing, before the next unit.** Once a unit is
   checkpointed, run `/compact` before starting the next unit; run `/clear`
   when switching to an unrelated task. The progress file — not conversation

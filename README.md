@@ -2,23 +2,27 @@
 
 Config and templates for pairing **Claude Code** with three MCP delegation
 bridges in a fixed-role pipeline: **Antigravity** (Gemini 3.6 Flash, run via
-the `agy-bridge` MCP server) as **Coder/Executor**, and two pinned instances
-of Codex's built-in MCP server — **`codex-qa`** (model 5.6 Terra) as **QA
-Engineer** and **`codex-security`** (model 5.6 Sol) as **Security
-Engineer**. Claude Code itself plays **Planner and Code Reviewer**, on
-whichever model you choose per plan — it stays the single agent harness with
-sole authority to execute, verify, and integrate the result. A lean context
-window is a consequence of that routing, not the goal itself.
+the `agy-bridge` MCP server), which plays three roles at different pipeline
+stages — **Document Analyzer**, **Coder/Executor**, and **Release/Changelog
+Writer** — and two pinned instances of Codex's built-in MCP server —
+**`codex-qa`** (model 5.6 Terra) as **QA Engineer** and **`codex-security`**
+(model 5.6 Sol) as **Security Engineer**. Claude Code itself plays
+**Planner and Code Reviewer**, on whichever model you choose per plan — it
+stays the single agent harness with sole authority to execute, verify, and
+integrate the result. A lean context window is a consequence of that
+routing, not the goal itself.
 
 ## Why
 
 Sending everything through one model, even when it's "free" against that
 model's own limit, is still wasteful if a different provider is better
 suited to a specific role. Rather than routing task-by-task, this setup
-pins each bridge to a fixed job: Antigravity always writes the code, Codex
-QA always tests it, Codex Security always reviews it for exploitable
-issues, and Claude Code always plans and does the first review pass before
-either Codex role ever sees a diff.
+pins each bridge to a fixed job: Antigravity ingests specs into a
+requirement matrix, then writes the code, then drafts the release notes;
+Codex QA always tests the diff; Codex Security always reviews it for
+exploitable issues; and Claude Code always plans, does the first review
+pass before either Codex role ever sees a diff, and has final say on every
+Antigravity output — including the docs it drafts.
 
 Claude Code stays the harness because it's the only party with tool access,
 repo/session state, and write permission — a bridge can implement or review,
@@ -123,19 +127,22 @@ templates/
 
 | Role | Bridge | Model | Job |
 |---|---|---|---|
-| Planner & Code Reviewer | Claude Code (you) | Chosen per plan, no fixed pin | Plan the unit, hand it to Antigravity, review the diff before QA/Security see it, reconcile findings |
+| Document Analyzer | `antigravity` | Gemini 3.6 Flash | Ingest specs/PRDs/docs before planning, produce a requirement matrix |
+| Planner & Code Reviewer | Claude Code (you) | Chosen per plan, no fixed pin | Plan the unit from the requirement matrix, hand it to Antigravity, review the diff before QA/Security see it, reconcile findings |
 | Coder / Executor | `antigravity` | Gemini 3.6 Flash | Implement the plan — write/edit/run code until it works |
 | QA Engineer | `codex-qa` | 5.6 Terra | Test the reviewed diff for correctness, edge cases, regressions |
 | Security Engineer | `codex-security` | 5.6 Sol | Review the reviewed diff for exploitable issues |
-| Follow-up on Antigravity work | — | — | `follow_up` with the returned `session_id` |
+| Release / Changelog Writer | `antigravity` | Gemini 3.6 Flash | Draft changelog/doc updates from the accepted diff, once shipped |
+| Follow-up on Antigravity work | — | — | `follow_up` with the returned `session_id`, **within the same role only** — start a fresh call when the pipeline moves to a different Antigravity role |
 | Follow-up on `codex-qa` work | — | — | `codex-reply` with the `threadId` `codex-qa` returned |
 | Follow-up on `codex-security` work | — | — | `codex-reply` with the `threadId` `codex-security` returned |
 
-Roles are pinned, not task-fit routed — Antigravity always implements,
-`codex-qa` always tests, `codex-security` always reviews for security. QA
-and Security run in parallel on the same diff once Claude Code's own review
-pass is done; raw output is never piped bridge-to-bridge, Claude Code always
-mediates. Independent units are delegated in parallel.
+Roles are pinned, not task-fit routed — Antigravity always analyzes docs,
+implements, and drafts release notes (three separate sessions, same
+server); `codex-qa` always tests; `codex-security` always reviews for
+security. QA and Security run in parallel on the same diff once Claude
+Code's own review pass is done; raw output is never piped bridge-to-bridge,
+Claude Code always mediates. Independent units are delegated in parallel.
 
 Only `antigravity`, `codex-qa`, and `codex-security` calls run on a separate
 vendor's usage quota. Claude's own subagents (`Agent`/`Task` — Explore,
@@ -179,7 +186,8 @@ The delegation template supports this topology:
 
 ```text
 Claude Code (Planner & Reviewer)
-  -> Antigravity (antigravity MCP server, runs agy-bridge, Gemini 3.6 Flash) — Coder/Executor
+  -> Antigravity (antigravity MCP server, runs agy-bridge, Gemini 3.6 Flash)
+       — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
   -> Codex QA (codex-qa MCP server, profile "qa", model 5.6 Terra) — QA Engineer
   -> Codex Security (codex-security MCP server, profile "security", model 5.6 Sol) — Security Engineer
 ```
