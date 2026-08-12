@@ -59,16 +59,30 @@ Code carry the full investigation in its own context.
 
 ```
 templates/
-  CLAUDE.md                  — drop-in delegation + checkpoint rules for a project's CLAUDE.md
-  review-topic-template.md   — structure for a persistent review-<topic>.md progress file
+  CLAUDE.md                  — three-bridge mode: drop-in delegation + checkpoint rules (Antigravity + codex-qa + codex-security)
+  CLAUDE-two-bridge.md       — two-bridge mode: same pipeline, no Codex subscription (Antigravity only, QA/Security via adversarial_review lenses)
+  review-topic-template.md   — structure for a persistent review-<topic>.md progress file, shared by both modes
 ```
+
+## Which mode do I need?
+
+- **Have a Codex subscription too?** Use `templates/CLAUDE.md` (three-bridge
+  mode). QA and Security get their own independent model/process each.
+- **Only Claude Code + Antigravity subscriptions?** Use
+  `templates/CLAUDE-two-bridge.md`. Same pipeline shape, but QA and Security
+  fold into two separately-framed Antigravity `adversarial_review` passes
+  instead of two dedicated bridges — weaker independence, since both lenses
+  ultimately come from one vendor's model family; the two-bridge template's
+  "Why this is weaker, and what compensates" section explains what that
+  costs and why your own Review step has to work harder as a result.
 
 ## Setup
 
 1. Prerequisites: the `agy` CLI installed and authenticated; Node + npx
-   available; and the `codex` CLI installed and authenticated.
-2. Pin the two Codex roles to their models via Codex profiles. Add to
-   `~/.codex/config.toml`:
+   available; and — **three-bridge mode only** — the `codex` CLI installed
+   and authenticated. Two-bridge mode needs only `agy`.
+2. **Three-bridge mode only** — pin the two Codex roles to their models via
+   Codex profiles. Add to `~/.codex/config.toml`:
    ```toml
    [profiles.qa]
    model = "5.6 Terra"
@@ -76,27 +90,38 @@ templates/
    [profiles.security]
    model = "5.6 Sol"
    ```
-3. Register all three MCP servers at user scope (available in every project
-   on the machine). The Antigravity alias is `antigravity` — the
-   `agy-bridge` npm package is just what runs behind it. The two Codex
-   instances are separate registrations, each pinned to its profile:
-   ```bash
-   claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"Gemini 3.6 Flash"},"timeout":600000}'
-   claude mcp add-json -s user codex-qa '{"command":"codex","args":["--profile","qa","mcp-server"],"timeout":600000}'
-   claude mcp add-json -s user codex-security '{"command":"codex","args":["--profile","security","mcp-server"],"timeout":600000}'
-   ```
-   `AGY_DEFAULT_MODEL` is only a fallback for calls that omit `model` — the
-   template in `templates/CLAUDE.md` still has every Antigravity call pass
-   `model: "Gemini 3.6 Flash"` explicitly, since that's the only guarantee
-   the bridge honors it (see `agy-bridge`'s per-tool model chain).
-4. Verify: `claude mcp list` should show **all three** — `antigravity`,
-   `codex-qa`, `codex-security` — as **Connected**.
-5. Copy `templates/CLAUDE.md` into a target project's `CLAUDE.md` (or merge
-   its rules into an existing one) to turn on the role pipeline there.
+   Skip this step entirely in two-bridge mode — there's no Codex to profile.
+3. Register the MCP server(s) at user scope (available in every project on
+   the machine). The Antigravity alias is `antigravity` — the `agy-bridge`
+   npm package is just what runs behind it.
+   - **Two-bridge mode** — register Antigravity only:
+     ```bash
+     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"Gemini 3.6 Flash"},"timeout":600000}'
+     ```
+   - **Three-bridge mode** — register Antigravity plus the two pinned Codex
+     instances:
+     ```bash
+     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"Gemini 3.6 Flash"},"timeout":600000}'
+     claude mcp add-json -s user codex-qa '{"command":"codex","args":["--profile","qa","mcp-server"],"timeout":600000}'
+     claude mcp add-json -s user codex-security '{"command":"codex","args":["--profile","security","mcp-server"],"timeout":600000}'
+     ```
+   `AGY_DEFAULT_MODEL` is only a fallback for calls that omit `model` —
+   both templates still have every Coder/Analyzer/Release-Writer Antigravity
+   call pass `model: "Gemini 3.6 Flash"` explicitly (QA/Security lens calls
+   in two-bridge mode intentionally don't — see that template), since
+   that's the only guarantee the bridge honors it (see `agy-bridge`'s
+   per-tool model chain).
+4. Verify: `claude mcp list` should show `antigravity` **Connected**
+   (two-bridge mode), or `antigravity`, `codex-qa`, and `codex-security`
+   **all three Connected** (three-bridge mode).
+5. Copy whichever template matches your mode — `templates/CLAUDE.md`
+   (three-bridge) or `templates/CLAUDE-two-bridge.md` (two-bridge) — into a
+   target project's `CLAUDE.md` (or merge its rules into an existing one)
+   to turn on the role pipeline there.
 6. (Team sharing) Instead of user-scope registration, a project can commit a
-   `.mcp.json` with the same three server entries (and a checked-in
-   `codex` profile config, or documented setup step for it) so the config
-   travels with the repo.
+   `.mcp.json` with the same server entries for its mode (and, for
+   three-bridge mode, a checked-in `codex` profile config or documented
+   setup step for it) so the config travels with the repo.
 
 ### Operational notes
 
@@ -110,20 +135,25 @@ templates/
 - **Output cap:** Antigravity truncates responses at `AGY_MAX_OUTPUT_CHARS`
   (default 50,000). Prompts should request high-density, structured findings
   (e.g. a QA pass/fail table) rather than unformatted output.
-- **`codex-qa` and `codex-security` are independent processes.** Both run
-  the same `codex` binary but with different `--profile` values, so they
-  hold separate sessions/threads even for the same diff — a `threadId` from
-  one is meaningless on the other.
+- **(Three-bridge mode) `codex-qa` and `codex-security` are independent
+  processes.** Both run the same `codex` binary but with different
+  `--profile` values, so they hold separate sessions/threads even for the
+  same diff — a `threadId` from one is meaningless on the other.
+- **(Two-bridge mode) QA and Security lenses run sequentially, not in
+  parallel** — they're both `adversarial_review` calls on the one
+  Antigravity server, so there's no independent process to fire them
+  concurrently against.
 - **Macro-Delegation strategy:** Both Antigravity (Gemini, 1M–2M context) and
   Codex (128k+ context with deep reasoning) possess massive token capacity.
   Send the full plan and every touched file to Antigravity in one call for
-  implementation, and the full diff plus plan/acceptance criteria to
-  `codex-qa`/`codex-security` in one call each, rather than fragmenting into
+  implementation, and the full diff plus plan/acceptance criteria to the
+  QA/Security role(s) in one call each, rather than fragmenting into
   single-file micro-delegations.
 
 ## Using the templates
 
-**`templates/CLAUDE.md`** — delegation rules for a fixed-role pipeline:
+**`templates/CLAUDE.md`** (three-bridge mode) — delegation rules for a
+fixed-role pipeline:
 
 | Role | Bridge | Model | Job |
 |---|---|---|---|
@@ -160,12 +190,34 @@ pipeline); and read the relevant `review-<topic>.md` first thing on a
 fresh/post-compaction session instead of reconstructing state from
 conversation history.
 
+**`templates/CLAUDE-two-bridge.md`** (two-bridge mode) — same pipeline and
+orchestration rules, but with QA and Security folded into Antigravity:
+
+| Role | Bridge | Model | Job |
+|---|---|---|---|
+| Document Analyzer | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
+| Planner & Code Reviewer | Claude Code (you) | Chosen per plan | Same as three-bridge mode, but your Review pass is now the pipeline's primary defense, not a first pass — see the template's "Why this is weaker, and what compensates" |
+| Coder / Executor | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
+| QA lens | `antigravity` | `adversarial_review` chain (Gemini 3.1 Pro high → Claude Opus 4.6 → Flash) | Correctness/edge-case/regression pass, framed as QA |
+| Security lens | `antigravity` | `adversarial_review` chain (same as above) | Exploitability pass, framed as Security — run **after** the QA lens, in its own fresh session |
+| Release / Changelog Writer | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
+
+The `adversarial_review` chain leads with a different model (Gemini 3.1
+Pro) than the Coder role's Gemini 3.6 Flash, so the two-bridge mode still
+gets *some* separation between who writes the code and who reviews it — it
+just can't get the two-independent-reviewers separation the three-bridge
+mode gets from Codex being a wholly separate vendor. Both lens calls must
+state their framing explicitly in the prompt (same tool, different ask) and
+must run in separate sessions from each other and from the Coder call — see
+the template's "Session continuity" section.
+
 **`templates/review-topic-template.md`** — the structure for that
-`review-<topic>.md` progress file: context, per-unit status with cited
-requirements and delegation session IDs, a gap list, a "failed approaches"
-log (so dead ends aren't rediscovered), a "not yet done" list for the
-next session, and an archive convention that keeps the file lean (completed
-units move to `review-<topic>-archive.md`).
+`review-<topic>.md` progress file, shared by both modes: context, per-unit
+status with cited requirements and delegation session IDs, a gap list, a
+"failed approaches" log (so dead ends aren't rediscovered), a "not yet
+done" list for the next session, and an archive convention that keeps the
+file lean (completed units move to `review-<topic>-archive.md`). It carries
+a tally line for each mode — delete whichever doesn't apply to your setup.
 
 Note: the progress-file template uses Indonesian section headers, and the
 CLAUDE.md rules refer to them by exact name — the section names are
@@ -173,23 +225,37 @@ load-bearing. If you translate one file, translate both.
 
 ## Verifying it works
 
-After restarting Claude Code, run `claude mcp list`. All three bridges —
-`antigravity`, `codex-qa`, `codex-security` — must be connected. An
-Antigravity call should return a `session_id`; a `codex-qa` or
-`codex-security` call should each return their own `threadId` — confirm
-they're different values even for calls about the same diff, since that's
-the tell that the two Codex instances aren't accidentally sharing a session.
+After restarting Claude Code, run `claude mcp list`.
+
+- **Three-bridge mode:** all three bridges — `antigravity`, `codex-qa`,
+  `codex-security` — must be connected. An Antigravity call should return a
+  `session_id`; a `codex-qa` or `codex-security` call should each return
+  their own `threadId` — confirm they're different values even for calls
+  about the same diff, since that's the tell that the two Codex instances
+  aren't accidentally sharing a session.
+- **Two-bridge mode:** `antigravity` must be connected (no Codex entries
+  expected). Run one `adversarial_review` call framed as QA and a separate
+  one framed as Security, and confirm they return different `session_id`
+  values — that's the tell that the two lenses aren't accidentally sharing
+  a session.
 
 ## Status
 
-The delegation template supports this topology:
+The delegation template supports two topologies:
 
 ```text
+Three-bridge mode:
 Claude Code (Planner & Reviewer)
   -> Antigravity (antigravity MCP server, runs agy-bridge, Gemini 3.6 Flash)
        — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
   -> Codex QA (codex-qa MCP server, profile "qa", model 5.6 Terra) — QA Engineer
   -> Codex Security (codex-security MCP server, profile "security", model 5.6 Sol) — Security Engineer
+
+Two-bridge mode:
+Claude Code (Planner & Reviewer — now also primary defense, see CLAUDE-two-bridge.md)
+  -> Antigravity (antigravity MCP server, runs agy-bridge)
+       — Document Analyzer / Coder-Executor / Release-Changelog Writer (Gemini 3.6 Flash)
+       — QA lens / Security lens (adversarial_review chain: Gemini 3.1 Pro high -> Claude Opus 4.6 -> Flash)
 ```
 
 This is the current PoC: a fixed-role pipeline (plan → implement → review →
