@@ -5,8 +5,10 @@ Repo: <repo name/path>
 Scope: <what this covers, what's explicitly excluded/deferred and why>
 
 ## Delegation tally
-Antigravity: <N> calls | Codex: <N> calls
-(Updated at every checkpoint. Used only to break ties in the review/second-opinion swap zone — see "Balancing the swap zone" in templates/CLAUDE.md.)
+Antigravity (Coder): <N> calls | Codex QA: <N> calls | Codex Security: <N> calls
+(Updated at every checkpoint. Roles are fixed per bridge — this tally is for
+observability/cost tracking only, not for routing decisions. A QA or Security
+count of 0 on a unit marked SELESAI is a red flag: that role was skipped.)
 
 ## Konteks
 <why this task exists, what the overall scope is>
@@ -22,9 +24,11 @@ Antigravity: <N> calls | Codex: <N> calls
 <what exists in code, with file:line or module references>
 
 ### Delegasi (jika ada)
-<provider: Antigravity atau Codex; tool dipakai; session_id untuk Antigravity
-follow_up atau threadId untuk Codex codex-reply; hasil singkat — tandai setiap
-klaim VERIFIED (sitasi file:line sudah di-spot-check) atau UNVERIFIED>
+<role: Coder (antigravity) / QA (codex-qa) / Security (codex-security); tool
+dipakai; session_id untuk Antigravity follow_up atau threadId untuk
+codex-reply (per server — threadId codex-qa dan codex-security tidak bisa
+ditukar); hasil singkat — tandai setiap klaim VERIFIED (sitasi file:line
+sudah di-spot-check) atau UNVERIFIED>
 
 ### Gap list
 | # | Gap | Severity | Catatan |
