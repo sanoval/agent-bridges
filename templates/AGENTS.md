@@ -20,6 +20,25 @@ put delegation/pipeline/model-routing rules here — those live in
 `CLAUDE.md` below the import line, since Codex and Antigravity executing as
 Coder/QA/Security don't need to know how Claude Code decided to call them.
 
+## Skills
+
+This project's custom skills live in one canonical `skills/<name>/SKILL.md`
+directory at the project root (same file format Claude Code and Antigravity
+both use — YAML frontmatter `description`/`name`, markdown body, optional
+`scripts/`/`resources/`). Two directories are symlinks to it, not copies:
+
+- `.claude/skills` → `../skills` (Claude Code's discovery path)
+- `.agents/skills` → `../skills` (Antigravity's workspace discovery path)
+
+Codex has no per-task skill loader, so it can't discover `skills/` on its
+own — it only ever sees a skill if Claude Code pastes the matching one's
+body into a `codex-qa`/`codex-security` prompt. The list below exists so
+Codex (reading this file natively) at least knows what's available, even
+though it can't trigger one itself:
+
+<one line per skill: `name` — one-sentence description, kept in sync with
+each skill's own frontmatter>
+
 ---
 
 ## Project overview

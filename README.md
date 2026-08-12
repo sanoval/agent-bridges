@@ -88,20 +88,30 @@ in `CLAUDE.md` below the import line, since Codex and Antigravity executing
 as Coder/QA/Security don't need to know how Claude Code decided to call
 them. See `templates/AGENTS.md` for the section structure.
 
-**Skills and plugins don't centralize the same way — this is a real,
-unresolved gap, not solved by this repo.** Claude Code Skills (`SKILL.md`,
-auto-triggered by description) and marketplace plugins are a Claude
-Code-specific runtime feature; Codex has no equivalent beyond AGENTS.md and
-MCP tools. Antigravity's `agy` CLI does appear to have its own native
-skill/plugin/hook system (`agy inspect` reportedly lists them), but its
-file format is unverified here — worth investigating directly before
-assuming it's portable to or from Claude Code's format. Until that's
-confirmed, the practical workaround is to keep skill-equivalent playbooks
-as plain markdown that Claude Code loads as real Skills, and have Claude
-Code (the party composing every delegation prompt anyway) paste the
-relevant playbook content into Antigravity/Codex calls when it applies —
-centralizing authorship and storage, not runtime auto-loading, for the two
-harnesses that don't have a skill loader of their own.
+**Skills centralize between Claude Code and Antigravity; Codex is the
+remaining gap.** Antigravity's native skill format (confirmed via `agy`
+docs) turns out to match Claude Code's almost exactly — YAML frontmatter
+(`description` required, `name` optional), a markdown body loaded only on
+a matching task, optional `scripts/`/`resources/` subfolders. The only real
+difference is *where* each harness looks for them:
+
+- Claude Code discovers skills in `.claude/skills/<name>/SKILL.md`.
+- Antigravity discovers workspace skills in `.agents/skills/<name>/SKILL.md`.
+
+Same fix as `AGENTS.md`/`GEMINI.md`, one level up: keep one canonical
+`skills/<name>/SKILL.md` directory at the project root, and make
+`.claude/skills` and `.agents/skills` **symlinks** to it
+(`ln -s skills .claude/skills`, `ln -s skills .agents/skills`) rather than
+two copies. Write a skill once, both harnesses can trigger it natively.
+
+Codex has no per-task skill loader — nothing to symlink to. It can't
+discover `skills/` on its own, so a skill only reaches Codex when Claude
+Code (already composing every delegation prompt) pastes the matching
+skill's body into a `codex-qa`/`codex-security` call. `templates/AGENTS.md`
+carries a plain-list "Available skills" section so Codex at least knows
+what exists, even though it can't trigger one itself — that's the one part
+of this that stays a workaround rather than a real fix, since it's a
+structural gap in Codex, not a format mismatch this repo can paper over.
 
 ## Which mode do I need?
 
@@ -163,12 +173,19 @@ harnesses that don't have a skill loader of their own.
    already reads this file natively if the project has one), then symlink
    `GEMINI.md` to it: `ln -s AGENTS.md GEMINI.md`. See "Centralizing memory
    across harnesses" above.
-7. (Team sharing) Instead of user-scope registration, a project can commit a
+7. Centralize skills: create (or move existing custom skills into) a
+   `skills/<name>/SKILL.md` directory at the project root, then symlink
+   both harnesses' discovery paths to it:
+   `ln -s skills .claude/skills && ln -s skills .agents/skills`. Keep the
+   "Available skills" list in `AGENTS.md` in sync — Codex reads it there
+   but can't discover `skills/` on its own.
+8. (Team sharing) Instead of user-scope registration, a project can commit a
    `.mcp.json` with the same server entries for its mode (and, for
    three-bridge mode, a checked-in `codex` profile config or documented
    setup step for it) so the config travels with the repo. Commit
-   `AGENTS.md` and the `GEMINI.md` symlink too — both are meant to be
-   checked in, not local-only.
+   `AGENTS.md`, the `GEMINI.md` symlink, `skills/`, and the `.claude/skills`
+   / `.agents/skills` symlinks too — all of it is meant to be checked in,
+   not local-only.
 
 ### Operational notes
 

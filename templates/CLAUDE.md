@@ -127,6 +127,18 @@ namespace — do not mix them up:
   returned. A `codex-security` threadId is not valid on `codex-qa` and vice
   versa — they are different processes even though both run `codex`.
 
+## Shared skills
+
+This project's custom skills live in `skills/<name>/SKILL.md`, symlinked
+into both `.claude/skills` and `.agents/skills` (see `templates/AGENTS.md`).
+You (Claude Code) and Antigravity trigger these natively — same file
+format, same description-matching mechanism. Codex cannot: it has no
+per-task skill loader, so before a `codex-qa`/`codex-security` call, check
+whether a skill in `skills/` matches what you're asking it to do and, if
+so, paste that skill's markdown body into the prompt yourself. Note in the
+checkpoint which skill (if any) was pasted into a Codex call, since Codex
+won't have discovered it on its own.
+
 ## Optional second opinion on your plan
 
 Antigravity also exposes `adversarial_review`. Before handing a

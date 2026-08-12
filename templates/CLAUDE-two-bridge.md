@@ -102,6 +102,14 @@ Every QA/Security lens call must specify:
   start fresh between the QA lens and Security lens calls specifically
   (never `follow_up` one into the other).
 
+## Shared skills
+
+This project's custom skills live in `skills/<name>/SKILL.md`, symlinked
+into both `.claude/skills` and `.agents/skills` (see `templates/AGENTS.md`).
+Both you (Claude Code) and Antigravity trigger these natively — same file
+format, same description-matching mechanism, no workaround needed in
+two-bridge mode since there's no Codex to leave out.
+
 ## Do NOT delegate
 
 Trivial single-line edits, questions answered by already-loaded context, or
