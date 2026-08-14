@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse hook for Edit|Write|NotebookEdit — mechanically enforces the
-# "Gate" section in templates/CLAUDE.md / templates/CLAUDE-two-bridge.md:
+# "Gate" section in templates/CLAUDE.md (always-on core, both modes):
 # direct edits to application code should go through the antigravity
 # Coder-role delegation call, not Claude Code's own tools.
 #

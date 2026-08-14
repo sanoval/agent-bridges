@@ -8,8 +8,8 @@ Scope: <what this covers, what's explicitly excluded/deferred and why>
 Three-bridge mode (templates/CLAUDE.md):
 Antigravity — Analyzer: <N> | Coder: <N> | Release Writer: <N> || Codex QA: <N> | Codex Security: <N>
 
-Two-bridge mode (templates/CLAUDE-two-bridge.md) — use this line instead if
-no Codex bridge is registered:
+Two-bridge mode (templates/CLAUDE-two-bridge.overlay.md) — use this line
+instead if no Codex bridge is registered:
 Antigravity — Analyzer: <N> | Coder: <N> | QA lens: <N> | Security lens: <N> | Release Writer: <N>
 
 (Updated at every checkpoint. Roles are fixed per bridge/role — this tally is
