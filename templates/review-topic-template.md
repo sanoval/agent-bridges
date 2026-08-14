@@ -8,8 +8,8 @@ Scope: <what this covers, what's explicitly excluded/deferred and why>
 Three-bridge mode (templates/CLAUDE.md):
 Antigravity — Analyzer: <N> | Coder: <N> | Release Writer: <N> || Codex QA: <N> | Codex Security: <N>
 
-Two-bridge mode (templates/CLAUDE-two-bridge.md) — use this line instead if
-no Codex bridge is registered:
+Two-bridge mode (templates/CLAUDE.md + templates/CLAUDE-two-bridge-overlay.md)
+— use this line instead if no Codex bridge is registered:
 Antigravity — Analyzer: <N> | Coder: <N> | QA lens: <N> | Security lens: <N> | Release Writer: <N>
 
 (Updated at every checkpoint. Roles are fixed per bridge/role — this tally is
@@ -39,6 +39,9 @@ ditukar); two-bridge mode: QA lens / Security lens (keduanya antigravity
 adversarial_review, session terpisah, jangan follow_up satu ke lainnya);
 hasil singkat — tandai setiap klaim VERIFIED (sitasi file:line sudah
 di-spot-check) atau UNVERIFIED>
+
+Referensi: templates/skills/delegation-pipeline/SKILL.md (semua mode) dan
+templates/skills/delegation-pipeline/two-bridge.md (two-bridge mode).
 
 ### Gap list
 | # | Gap | Severity | Catatan |
