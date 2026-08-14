@@ -63,6 +63,9 @@ templates/
   CLAUDE.md                  — three-bridge mode: drop-in delegation + checkpoint rules (Antigravity + codex-qa + codex-security)
   CLAUDE-two-bridge.md       — two-bridge mode: same pipeline, no Codex subscription (Antigravity only, QA/Security via adversarial_review lenses)
   review-topic-template.md   — structure for a persistent review-<topic>.md progress file, shared by both modes
+  settings.hooks.json        — PreToolUse hook config that enforces the CLAUDE.md "Gate" mechanically (see Setup step 8)
+  hooks/
+    agent-bridges-gate.sh    — the Gate-enforcement hook script referenced by settings.hooks.json
 ```
 
 ## Centralizing memory across harnesses
@@ -181,7 +184,26 @@ structural gap in Codex, not a format mismatch this repo can paper over.
    `ln -s skills .claude/skills && ln -s skills .agents/skills`. Keep the
    "Available skills" list in `AGENTS.md` in sync — Codex reads it there
    but can't discover `skills/` on its own.
-8. (Team sharing) Instead of user-scope registration, a project can commit a
+8. **Enforce the Gate mechanically (recommended).** The "Gate" section in
+   `templates/CLAUDE.md` / `templates/CLAUDE-two-bridge.md` is prose — it
+   shapes Claude Code's behavior but nothing stops it from editing a file
+   directly if it judges a change "small enough." To turn that into a real
+   checkpoint instead of an honor system, copy
+   `templates/hooks/agent-bridges-gate.sh` into the target project as
+   `.claude/hooks/agent-bridges-gate.sh` (`chmod +x` it), then merge the
+   `hooks` block from `templates/settings.hooks.json` into the project's
+   `.claude/settings.json` (merge, don't overwrite, if hooks already exist
+   there). This installs a `PreToolUse` hook on `Edit`/`Write`/
+   `NotebookEdit`: edits to progress files (`review-*.md`), project memory
+   (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), delegation config (`.claude/`,
+   `.agents/`), or `skills/` pass through untouched; everything else
+   (application code) surfaces a permission prompt quoting the Gate rule,
+   so a bypass becomes something the user sees and approves rather than
+   something that happens silently. It does not cover Bash commands that
+   mutate tracked files — that half of the Gate stays honor-system, since
+   reliably detecting arbitrary file-mutating shell commands isn't
+   something the hook's matcher syntax can do robustly.
+9. (Team sharing) Instead of user-scope registration, a project can commit a
    `.mcp.json` with the same server entries for its mode (and, for
    three-bridge mode, a checked-in `codex` profile config or documented
    setup step for it) so the config travels with the repo. Commit
@@ -303,6 +325,13 @@ After restarting Claude Code, run `claude mcp list`.
   one framed as Security, and confirm they return different `session_id`
   values — that's the tell that the two lenses aren't accidentally sharing
   a session.
+- **Gate hook (if installed per Setup step 8):** ask Claude Code to `Edit`
+  or `Write` any application-code file directly (not a progress file,
+  `CLAUDE.md`/`AGENTS.md`, or anything under `.claude/`/`.agents/`/
+  `skills/`). A permission prompt quoting the Gate rule should appear
+  before the edit is allowed to proceed — that's the hook firing. If it
+  doesn't fire, the settings watcher may not have picked up the new hooks
+  file; open `/hooks` once (reloads config) or restart.
 
 ## Status
 

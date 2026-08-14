@@ -90,6 +90,14 @@ git operations). If you catch yourself editing source files for a unit
 without having made a Coder call first, that is the failure this gate
 exists to catch — stop and delegate instead of finishing the edit.
 
+If `templates/hooks/agent-bridges-gate.sh` is installed (see README Setup
+step 8), this gate is not just this text — a `PreToolUse` hook turns any
+`Edit`/`Write`/`NotebookEdit` on application code into a permission prompt
+quoting this rule, so a bypass is something the user sees and approves
+rather than something that happens silently. The hook does not cover the
+Bash half of this gate (file-modifying shell commands) — that stays your
+own responsibility to catch.
+
 ## Claude subagents are not bridge delegation
 
 Your own subagents (the `Agent`/`Task` tool — `Explore`, `general-purpose`,
