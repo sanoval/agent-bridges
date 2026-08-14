@@ -69,6 +69,25 @@ first pass before a second opinion.
 6. **Release notes** (`antigravity`, Release Writer role, model
    `Gemini 3.6 Flash`). Same as the three-bridge template.
 
+## Gate: before you touch Edit, Write, or a file-modifying Bash command
+
+Before any tool call that edits application code — Edit, Write,
+NotebookEdit, or a Bash command that changes a tracked file — stop and ask:
+is this the Coder role's job? If the change is inside the current unit's
+plan, it goes to `antigravity` (step 2), not to your own tools, even if it
+looks small. This gate is per-unit, not per-file: a plan that is mostly
+one-line changes is still a single Coder delegation call, not an excuse to
+apply each line yourself because individually each looks trivial.
+
+The only edits you make directly on a unit's code are: a fix so small that
+round-tripping it to Antigravity isn't worth it (say so, and why, in the
+checkpoint), a correction to something Antigravity's diff got subtly wrong
+that isn't worth a second Coder call, or work outside the Coder role's
+scope entirely (progress files, this repo's own delegation config, local
+git operations). If you catch yourself editing source files for a unit
+without having made a Coder call first, that is the failure this gate
+exists to catch — stop and delegate instead of finishing the edit.
+
 ## Claude subagents are not bridge delegation
 
 Same rule as the three-bridge template: only `antigravity` calls run on a
@@ -112,8 +131,21 @@ two-bridge mode since there's no Codex to leave out.
 
 ## Do NOT delegate
 
-Trivial single-line edits, questions answered by already-loaded context, or
-tasks needing local tools only you have.
+This list is deliberately narrow — do not stretch it to cover a unit that
+just feels small:
+
+- A literal single-line edit with no logic decision behind it (a typo, a
+  version bump, a comment fix).
+- A question fully answered by context already loaded in this conversation
+  (no new code, no new investigation).
+- An action that needs a tool, permission, or piece of session state only
+  you have (local git commands, editing the progress file itself, editing
+  this delegation config).
+
+If it's ambiguous whether something qualifies, delegate it. The cost of an
+unnecessary Antigravity round-trip is small; the cost of an unreviewed diff
+shipping outside the Coder → Review → QA/Security pipeline is the entire
+point of this setup.
 
 ## Example delegation prompts
 
@@ -162,6 +194,11 @@ three-bridge template's examples — see `templates/CLAUDE.md`.)
 - **On session start (fresh context or post-compaction):** read the
   relevant `review-<topic>.md` first, same as the three-bridge template.
 - **Keep the progress file lean.** Same as the three-bridge template.
+- **Self-audit before marking a unit SELESAI.** Check your own tool calls
+  for this unit: if Edit/Write/NotebookEdit touched source files without a
+  prior Coder-role Antigravity call for that change, that's a gate
+  violation (see "Gate" above) — record it in the progress file rather than
+  letting it pass silently, same as any other failed-approach entry.
 
 ## Upgrading back to three-bridge mode
 
