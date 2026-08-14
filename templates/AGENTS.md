@@ -8,7 +8,8 @@ in this pipeline, without being duplicated three times:
 - **Codex** (`codex-qa`, `codex-security`) reads this file natively — Codex
   looks for `AGENTS.md` on its own, no setup needed.
 - **Claude Code** reads it via the `@AGENTS.md` import line at the top of
-  `CLAUDE.md` (see `templates/CLAUDE.md` / `templates/CLAUDE-two-bridge.md`)
+  `CLAUDE.md` (see `templates/CLAUDE.md`, plus
+  `templates/CLAUDE-two-bridge-overlay.md` appended to it in two-bridge mode)
   — everything below that import line in `CLAUDE.md` is delegation/pipeline
   rules that only make sense for the orchestrator and stay out of this file.
 - **Antigravity** (`agy`) reads this file natively too — since the
@@ -37,8 +38,14 @@ body into a `codex-qa`/`codex-security` prompt. The list below exists so
 Codex (reading this file natively) at least knows what's available, even
 though it can't trigger one itself:
 
-<one line per skill: `name` — one-sentence description, kept in sync with
-each skill's own frontmatter>
+- `delegation-pipeline` — pipeline steps, payload contracts, session
+  continuity, example prompts, and checkpoint format for the delegation
+  pipeline defined in `CLAUDE.md`. Orchestrator-facing only (Claude Code and
+  Antigravity trigger it natively) — this is the one skill never pasted into
+  a Codex prompt, since Codex plays a fixed QA/Security role in the pipeline
+  this skill describes, not the orchestrator role.
+<one line per additional project skill: `name` — one-sentence description,
+kept in sync with each skill's own frontmatter>
 
 ---
 

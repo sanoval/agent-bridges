@@ -1,16 +1,16 @@
 # agent-bridges
 
 Config and templates for pairing **Claude Code** with three MCP delegation
-bridges in a fixed-role pipeline: **Antigravity** (Gemini 3.6 Flash, run via
-the `agy-bridge` MCP server), which plays three roles at different pipeline
-stages — **Document Analyzer**, **Coder/Executor**, and **Release/Changelog
-Writer** — and two pinned instances of Codex's built-in MCP server —
-**`codex-qa`** (model 5.6 Terra) as **QA Engineer** and **`codex-security`**
-(model 5.6 Sol) as **Security Engineer**. Claude Code itself plays
-**Planner and Code Reviewer**, on whichever model you choose per plan — it
-stays the single agent harness with sole authority to execute, verify, and
-integrate the result. A lean context window is a consequence of that
-routing, not the goal itself.
+bridges in a fixed-role pipeline: **Antigravity** (run via the `agy-bridge`
+MCP server, pinned to the Antigravity pin — see "Model pins" below), which
+plays three roles at different pipeline stages — **Document Analyzer**,
+**Coder/Executor**, and **Release/Changelog Writer** — and two pinned
+instances of Codex's built-in MCP server — **`codex-qa`** (QA pin) as
+**QA Engineer** and **`codex-security`** (Security pin) as **Security
+Engineer**. Claude Code itself plays **Planner and Code Reviewer**, on
+whichever model you choose per plan — it stays the single agent harness
+with sole authority to execute, verify, and integrate the result. A lean
+context window is a consequence of that routing, not the goal itself.
 
 ## Why
 
@@ -44,9 +44,9 @@ Code carry the full investigation in its own context.
   has to stay at one point, not just avoiding ping-pong for its own sake.
 - **Claude Code = MCP Host** (with an internal MCP client). **Antigravity**
   (registered as the `antigravity` MCP server, running the `agy-bridge`
-  package, pinned to model `Gemini 3.6 Flash`) and **two separate Codex MCP
-  Server instances** — `codex-qa` (profile pinned to model `5.6 Terra`) and
-  `codex-security` (profile pinned to model `5.6 Sol`) — are three separate
+  package, pinned to the Antigravity pin) and **two separate Codex MCP
+  Server instances** — `codex-qa` (profile pinned to the QA pin) and
+  `codex-security` (profile pinned to the Security pin) — are three separate
   MCP servers exposed over JSON-RPC 2.0. `codex-qa` and `codex-security` are
   independent processes even though both run the `codex` binary; they do not
   share sessions.
@@ -59,13 +59,16 @@ Code carry the full investigation in its own context.
 
 ```
 templates/
-  AGENTS.md                  — shared project memory, read by all three harnesses (see "Centralizing memory" below)
-  CLAUDE.md                  — three-bridge mode: drop-in delegation + checkpoint rules (Antigravity + codex-qa + codex-security)
-  CLAUDE-two-bridge.md       — two-bridge mode: same pipeline, no Codex subscription (Antigravity only, QA/Security via adversarial_review lenses)
-  review-topic-template.md   — structure for a persistent review-<topic>.md progress file, shared by both modes
-  settings.hooks.json        — PreToolUse hook config that enforces the CLAUDE.md "Gate" mechanically (see Setup step 8)
+  AGENTS.md                     — shared project memory, read by all three harnesses (see "Centralizing memory" below)
+  CLAUDE.md                     — always-on core: role/pin table, the Gate, "Do NOT delegate", checkpoint discipline (both modes)
+  CLAUDE-two-bridge-overlay.md  — two-bridge mode: appended to the bottom of a copied CLAUDE.md when no Codex subscription is available
+  review-topic-template.md      — structure for a persistent review-<topic>.md progress file, shared by both modes
+  settings.hooks.json           — PreToolUse hook config that enforces the CLAUDE.md "Gate" mechanically (see Setup step 8)
   hooks/
-    agent-bridges-gate.sh    — the Gate-enforcement hook script referenced by settings.hooks.json
+    agent-bridges-gate.sh       — the Gate-enforcement hook script referenced by settings.hooks.json
+  skills/delegation-pipeline/
+    SKILL.md                    — on-demand: pipeline steps, payload contracts, session continuity, example prompts (both modes)
+    two-bridge.md                — two-bridge deltas to SKILL.md: step 4 replacement, adversarial_review lens calls
 ```
 
 ## Centralizing memory across harnesses
@@ -76,9 +79,9 @@ drifting apart. They don't need to, because the three formats compose:
 
 - **Codex** reads `AGENTS.md` natively — no configuration needed, it just
   looks for that file.
-- **Claude Code** reads `CLAUDE.md`, and `templates/CLAUDE.md` /
-  `templates/CLAUDE-two-bridge.md` both open with an `@AGENTS.md` import
-  line, so Claude Code pulls in the same content Codex reads directly.
+- **Claude Code** reads `CLAUDE.md`, which opens with an `@AGENTS.md` import
+  line (the two-bridge overlay, appended below it, doesn't repeat the
+  import), so Claude Code pulls in the same content Codex reads directly.
 - **Antigravity** (`agy`) reads `AGENTS.md` natively too — as of the
   Antigravity CLI migration from Gemini CLI, `agy` parses and enforces
   both `GEMINI.md` and `AGENTS.md` in a directory with no configuration
@@ -118,19 +121,33 @@ what exists, even though it can't trigger one itself — that's the one part
 of this that stays a workaround rather than a real fix, since it's a
 structural gap in Codex, not a format mismatch this repo can paper over.
 
+One skill, `delegation-pipeline`, ships with this repo itself — see "Using
+the templates" below. It's orchestrator-facing (Claude Code/Antigravity
+only) and is never pasted into a Codex call.
+
 ## Which mode do I need?
 
-- **Have a Codex subscription too?** Use `templates/CLAUDE.md` (three-bridge
-  mode). QA and Security get their own independent model/process each.
-- **Only Claude Code + Antigravity subscriptions?** Use
-  `templates/CLAUDE-two-bridge.md`. Same pipeline shape, but QA and Security
-  fold into two separately-framed Antigravity `adversarial_review` passes
-  instead of two dedicated bridges — weaker independence, since both lenses
-  ultimately come from one vendor's model family; the two-bridge template's
-  "Why this is weaker, and what compensates" section explains what that
-  costs and why your own Review step has to work harder as a result.
+- **Have a Codex subscription too?** Use `templates/CLAUDE.md` as-is
+  (three-bridge mode). QA and Security get their own independent
+  model/process each.
+- **Only Claude Code + Antigravity subscriptions?** Copy
+  `templates/CLAUDE.md` and append
+  `templates/CLAUDE-two-bridge-overlay.md` to the bottom of it (two-bridge
+  mode). Same pipeline shape, but QA and Security fold into two
+  separately-framed Antigravity `adversarial_review` passes instead of two
+  dedicated bridges — weaker independence, since both lenses ultimately
+  come from one vendor's model family; the overlay's "Why this is weaker,
+  and what compensates" section explains what that costs and why your own
+  Review step has to work harder as a result.
 
 ## Setup
+
+### Model pins
+
+`templates/CLAUDE.md`'s "Model pins" table is the source of truth for every
+model value this pipeline uses. The commands below are the only other place
+a literal value may appear — keep them in sync with that table if a pin ever
+changes.
 
 1. Prerequisites: the `agy` CLI installed and authenticated; Node + npx
    available; and — **three-bridge mode only** — the `codex` CLI installed
@@ -160,19 +177,20 @@ structural gap in Codex, not a format mismatch this repo can paper over.
      claude mcp add-json -s user codex-security '{"command":"codex","args":["--profile","security","mcp-server"],"timeout":600000}'
      ```
    `AGY_DEFAULT_MODEL` is only a fallback for calls that omit `model` —
-   both templates still have every Coder/Analyzer/Release-Writer Antigravity
-   call pass `model: "Gemini 3.6 Flash"` explicitly (QA/Security lens calls
-   in two-bridge mode intentionally don't — see that template), since
-   that's the only guarantee the bridge honors it (see `agy-bridge`'s
-   per-tool model chain).
+   `templates/CLAUDE.md` still has every Coder/Analyzer/Release-Writer
+   Antigravity call pass `model:` set to the Antigravity pin explicitly
+   (QA/Security lens calls in two-bridge mode intentionally don't — see
+   `templates/skills/delegation-pipeline/two-bridge.md`), since that's the
+   only guarantee the bridge honors it (see `agy-bridge`'s per-tool model
+   chain).
 4. Verify: `claude mcp list` should show `antigravity` **Connected**
    (two-bridge mode), or `antigravity`, `codex-qa`, and `codex-security`
    **all three Connected** (three-bridge mode).
-5. Copy whichever template matches your mode — `templates/CLAUDE.md`
-   (three-bridge) or `templates/CLAUDE-two-bridge.md` (two-bridge) — into a
-   target project's `CLAUDE.md` (or merge its rules into an existing one)
-   to turn on the role pipeline there. Both start with an `@AGENTS.md`
-   import — do not strip that line.
+5. Copy `templates/CLAUDE.md` into a target project's `CLAUDE.md` (or merge
+   its rules into an existing one) to turn on the role pipeline there — it
+   starts with an `@AGENTS.md` import, do not strip that line. **Two-bridge
+   mode only:** also append `templates/CLAUDE-two-bridge-overlay.md` to the
+   bottom of the copied `CLAUDE.md`.
 6. Centralize project memory: copy `templates/AGENTS.md` into the target
    project's root `AGENTS.md` (or merge it into an existing one — Codex and
    Antigravity both already read this file natively if the project has
@@ -181,13 +199,15 @@ structural gap in Codex, not a format mismatch this repo can paper over.
 7. Centralize skills: create (or move existing custom skills into) a
    `skills/<name>/SKILL.md` directory at the project root, then symlink
    both harnesses' discovery paths to it:
-   `ln -s skills .claude/skills && ln -s skills .agents/skills`. Keep the
-   "Available skills" list in `AGENTS.md` in sync — Codex reads it there
+   `ln -s skills .claude/skills && ln -s skills .agents/skills`. Copy
+   `templates/skills/delegation-pipeline/` into that directory — keep
+   `two-bridge.md` in two-bridge mode, delete it in three-bridge mode. Keep
+   the "Available skills" list in `AGENTS.md` in sync — Codex reads it there
    but can't discover `skills/` on its own.
 8. **Enforce the Gate mechanically (recommended).** The "Gate" section in
-   `templates/CLAUDE.md` / `templates/CLAUDE-two-bridge.md` is prose — it
-   shapes Claude Code's behavior but nothing stops it from editing a file
-   directly if it judges a change "small enough." To turn that into a real
+   `templates/CLAUDE.md` is prose — it shapes Claude Code's behavior but
+   nothing stops it from editing a file directly if it judges a change
+   "small enough." To turn that into a real
    checkpoint instead of an honor system, copy
    `templates/hooks/agent-bridges-gate.sh` into the target project as
    `.claude/hooks/agent-bridges-gate.sh` (`chmod +x` it), then merge the
@@ -239,27 +259,22 @@ structural gap in Codex, not a format mismatch this repo can paper over.
 
 ## Using the templates
 
-**`templates/CLAUDE.md`** (three-bridge mode) — delegation rules for a
-fixed-role pipeline:
-
-| Role | Bridge | Model | Job |
-|---|---|---|---|
-| Document Analyzer | `antigravity` | Gemini 3.6 Flash | Ingest specs/PRDs/docs before planning, produce a requirement matrix |
-| Planner & Code Reviewer | Claude Code (you) | Chosen per plan, no fixed pin | Plan the unit from the requirement matrix, hand it to Antigravity, review the diff before QA/Security see it, reconcile findings |
-| Coder / Executor | `antigravity` | Gemini 3.6 Flash | Implement the plan — write/edit/run code until it works |
-| QA Engineer | `codex-qa` | 5.6 Terra | Test the reviewed diff for correctness, edge cases, regressions |
-| Security Engineer | `codex-security` | 5.6 Sol | Review the reviewed diff for exploitable issues |
-| Release / Changelog Writer | `antigravity` | Gemini 3.6 Flash | Draft changelog/doc updates from the accepted diff, once shipped |
-| Follow-up on Antigravity work | — | — | `follow_up` with the returned `session_id`, **within the same role only** — start a fresh call when the pipeline moves to a different Antigravity role |
-| Follow-up on `codex-qa` work | — | — | `codex-reply` with the `threadId` `codex-qa` returned |
-| Follow-up on `codex-security` work | — | — | `codex-reply` with the `threadId` `codex-security` returned |
+**`templates/CLAUDE.md`** — the always-on core, copied into a target
+project's `CLAUDE.md` for both modes. Carries the Model pins table, the
+Roles table (see "Which mode do I need?" and the template itself for the
+full role/bridge/pin breakdown — it is not repeated here to avoid a second
+copy drifting out of sync), the Gate, "Do NOT delegate", "Claude subagents
+are not bridge delegation", and the always-on half of checkpoint discipline
+(read `review-<topic>.md` first on session start, checkpoint after every
+step/decision, `/compact`/`/clear` between units).
 
 Roles are pinned, not task-fit routed — Antigravity always analyzes docs,
 implements, and drafts release notes (three separate sessions, same
 server); `codex-qa` always tests; `codex-security` always reviews for
-security. QA and Security run in parallel on the same diff once Claude
-Code's own review pass is done; raw output is never piped bridge-to-bridge,
-Claude Code always mediates. Independent units are delegated in parallel.
+security (three-bridge mode). QA and Security run in parallel on the same
+diff once Claude Code's own review pass is done; raw output is never piped
+bridge-to-bridge, Claude Code always mediates. Independent units are
+delegated in parallel.
 
 Only `antigravity`, `codex-qa`, and `codex-security` calls run on a separate
 vendor's usage quota. Claude's own subagents (`Agent`/`Task` — Explore,
@@ -268,35 +283,27 @@ reserves them for work that needs a tool, permission, or session state only
 Claude Code has — not for coding, QA, or security work, which the three
 bridges above own outright.
 
-Plus orchestration rules: checkpoint the progress file after every pipeline
-step and every major decision; `/compact` after checkpointing and before the
-next unit, `/clear` when switching tasks; require `file:line` citations and
-spot-check them before recording results; on bridge failure retry once, then
-do the check yourself (there's no same-role fallback bridge in this
-pipeline); and read the relevant `review-<topic>.md` first thing on a
-fresh/post-compaction session instead of reconstructing state from
-conversation history.
+**`templates/skills/delegation-pipeline/SKILL.md`** — loaded on demand
+(both modes) rather than kept always-on: the numbered pipeline steps 0–6,
+Macro-Delegation payload contracts, session-continuity rules
+(`follow_up`/`codex-reply` scoping), example delegation prompts, the
+verification bar (`file:line` citations, spot-checking), and the full
+orchestration rules (checkpoint contents, archive convention, self-audit
+before marking a unit SELESAI).
 
-**`templates/CLAUDE-two-bridge.md`** (two-bridge mode) — same pipeline and
-orchestration rules, but with QA and Security folded into Antigravity:
-
-| Role | Bridge | Model | Job |
-|---|---|---|---|
-| Document Analyzer | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
-| Planner & Code Reviewer | Claude Code (you) | Chosen per plan | Same as three-bridge mode, but your Review pass is now the pipeline's primary defense, not a first pass — see the template's "Why this is weaker, and what compensates" |
-| Coder / Executor | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
-| QA lens | `antigravity` | `adversarial_review` chain (Gemini 3.1 Pro high → Claude Opus 4.6 → Flash) | Correctness/edge-case/regression pass, framed as QA |
-| Security lens | `antigravity` | `adversarial_review` chain (same as above) | Exploitability pass, framed as Security — run **after** the QA lens, in its own fresh session |
-| Release / Changelog Writer | `antigravity` | Gemini 3.6 Flash | Same as three-bridge mode |
-
-The `adversarial_review` chain leads with a different model (Gemini 3.1
-Pro) than the Coder role's Gemini 3.6 Flash, so the two-bridge mode still
-gets *some* separation between who writes the code and who reviews it — it
-just can't get the two-independent-reviewers separation the three-bridge
-mode gets from Codex being a wholly separate vendor. Both lens calls must
-state their framing explicitly in the prompt (same tool, different ask) and
-must run in separate sessions from each other and from the Coder call — see
-the template's "Session continuity" section.
+**`templates/CLAUDE-two-bridge-overlay.md`** — appended to the bottom of a
+copied `CLAUDE.md` in two-bridge mode. Declares the mode, overrides the
+QA/Security rows to QA lens / Security lens (both `antigravity` via
+`adversarial_review`, model chain Gemini 3.1 Pro high → Claude Opus 4.6 →
+Flash — deliberately *not* the Antigravity pin, so the reviewing model
+differs from the Coder role's), carries "Why this is weaker, and what
+compensates" (your own Review step becomes the pipeline's primary defense,
+not a first pass), and points at
+`templates/skills/delegation-pipeline/two-bridge.md` for the pipeline-
+mechanics deltas: step 4 replaced by two sequential lens calls (not
+parallel — same server), each lens call stating its framing explicitly and
+running in its own fresh session (never `follow_up` one lens into the
+other or into the Coder session).
 
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file, shared by both modes: context, per-unit
@@ -340,15 +347,15 @@ The delegation template supports two topologies:
 ```text
 Three-bridge mode:
 Claude Code (Planner & Reviewer)
-  -> Antigravity (antigravity MCP server, runs agy-bridge, Gemini 3.6 Flash)
+  -> Antigravity (antigravity MCP server, runs agy-bridge, Antigravity pin)
        — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
-  -> Codex QA (codex-qa MCP server, profile "qa", model 5.6 Terra) — QA Engineer
-  -> Codex Security (codex-security MCP server, profile "security", model 5.6 Sol) — Security Engineer
+  -> Codex QA (codex-qa MCP server, profile "qa", QA pin) — QA Engineer
+  -> Codex Security (codex-security MCP server, profile "security", Security pin) — Security Engineer
 
 Two-bridge mode:
-Claude Code (Planner & Reviewer — now also primary defense, see CLAUDE-two-bridge.md)
+Claude Code (Planner & Reviewer — now also primary defense, see CLAUDE-two-bridge-overlay.md)
   -> Antigravity (antigravity MCP server, runs agy-bridge)
-       — Document Analyzer / Coder-Executor / Release-Changelog Writer (Gemini 3.6 Flash)
+       — Document Analyzer / Coder-Executor / Release-Changelog Writer (Antigravity pin)
        — QA lens / Security lens (adversarial_review chain: Gemini 3.1 Pro high -> Claude Opus 4.6 -> Flash)
 ```
 
