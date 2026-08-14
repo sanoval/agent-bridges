@@ -125,16 +125,18 @@ structural gap in Codex, not a format mismatch this repo can paper over.
 - **Only Claude Code + Antigravity subscriptions?** Use
   `templates/CLAUDE-two-bridge.md`. Same pipeline shape, but QA and Security
   fold into two separately-framed Antigravity `adversarial_review` passes
-  instead of two dedicated bridges — weaker independence, since both lenses
-  ultimately come from one vendor's model family; the two-bridge template's
-  "Why this is weaker, and what compensates" section explains what that
-  costs and why your own Review step has to work harder as a result.
+  instead of two dedicated bridges — weaker independence, since that's one
+  reviewer asked two questions rather than two reviewers; the two-bridge
+  template's "Why this is weaker, and what compensates" section explains
+  what that costs and why your own Review step has to work harder as a
+  result.
 
 ## Setup
 
 1. Prerequisites: the `agy` CLI installed and authenticated; Node + npx
    available; and — **three-bridge mode only** — the `codex` CLI installed
-   and authenticated. Two-bridge mode needs only `agy`.
+   and authenticated. Two-bridge mode needs only `agy`. If you plan to
+   install the Gate hook (step 8), it also needs `jq` on `PATH`.
 2. **Three-bridge mode only** — pin the two Codex roles to their models via
    Codex profiles. Add to `~/.codex/config.toml`:
    ```toml
@@ -194,15 +196,30 @@ structural gap in Codex, not a format mismatch this repo can paper over.
    `hooks` block from `templates/settings.hooks.json` into the project's
    `.claude/settings.json` (merge, don't overwrite, if hooks already exist
    there). This installs a `PreToolUse` hook on `Edit`/`Write`/
-   `NotebookEdit`: edits to progress files (`review-*.md`), project memory
-   (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), delegation config (`.claude/`,
-   `.agents/`), or `skills/` pass through untouched; everything else
-   (application code) surfaces a permission prompt quoting the Gate rule,
-   so a bypass becomes something the user sees and approves rather than
-   something that happens silently. It does not cover Bash commands that
-   mutate tracked files — that half of the Gate stays honor-system, since
-   reliably detecting arbitrary file-mutating shell commands isn't
-   something the hook's matcher syntax can do robustly.
+   `NotebookEdit` plus the GitHub MCP write tools
+   (`create_or_update_file`, `push_files`, `delete_file`), which are live
+   write paths in web/remote sessions. It has three outcomes:
+   - **allow** (silent) — project memory (`CLAUDE.md`/`AGENTS.md`/
+     `GEMINI.md`, at any depth), progress files (`review-*.md` at the repo
+     root), delegation config (`.claude/`, `.agents/`), and `skills/`.
+     These paths are **root-anchored**, so a `skills/` or `review-*.md`
+     path inside the source tree — `src/skills/billing.py` — is treated as
+     application code, not an exemption.
+   - **deny** — `.claude/hooks/`, `.agents/hooks/`, and
+     `.claude/settings*.json`. An enforcement mechanism the agent can
+     rewrite mid-session isn't enforcement, so the Gate's own machinery is
+     blocked rather than prompted. Edit those yourself, outside the
+     session, when you mean to change them.
+   - **ask** — everything else, i.e. application code: a permission prompt
+     quoting the Gate rule, so a bypass is something the user sees and
+     approves rather than something that happens silently.
+
+   The hook fails **closed**: if `jq` is missing or the tool input can't be
+   parsed, it asks rather than letting the write through unexamined. It
+   still does not cover Bash commands that mutate tracked files — that half
+   of the Gate stays honor-system, since reliably detecting arbitrary
+   file-mutating shell commands isn't something the hook's matcher syntax
+   can do robustly.
 9. (Team sharing) Instead of user-scope registration, a project can commit a
    `.mcp.json` with the same server entries for its mode (and, for
    three-bridge mode, a checked-in `codex` profile config or documented
@@ -268,14 +285,30 @@ reserves them for work that needs a tool, permission, or session state only
 Claude Code has — not for coding, QA, or security work, which the three
 bridges above own outright.
 
-Plus orchestration rules: checkpoint the progress file after every pipeline
-step and every major decision; `/compact` after checkpointing and before the
-next unit, `/clear` when switching tasks; require `file:line` citations and
-spot-check them before recording results; on bridge failure retry once, then
-do the check yourself (there's no same-role fallback bridge in this
-pipeline); and read the relevant `review-<topic>.md` first thing on a
-fresh/post-compaction session instead of reconstructing state from
-conversation history.
+Both templates open with a **"monitor, don't redo"** section — the
+orchestrator's review is an evaluation pass, and anything a bridge can hand
+back as evidence (commands run, exit codes, coverage of acceptance criteria)
+is requested in the delegation prompt rather than reconstructed afterwards.
+Units are tiered **Trivial / Standard / High-stakes** at plan time, which
+scales how many pipeline steps apply; QA and Security are non-optional at
+Standard and above, and "Trivial" is the single definition of an edit
+Claude Code may make directly — assigned in writing *before* implementing,
+not decided with the edit already drafted.
+
+Plus orchestration rules: two mechanical checks open every Review step
+(`git diff --name-only` against the plan's Touch list, and a re-run of the
+one acceptance-criteria command) before anyone reads the diff; two rejected
+Coder attempts on the same plan sends it back to planning rather than a
+third round; QA/Security conflicts resolve by a fixed precedence instead of
+per-unit debate; `file:line` citations get spot-checked, and a *clean* pass
+requires a coverage statement since there's no citation to check; checkpoint
+after every pipeline step and every major decision, recording tier, scope
+check, and the acceptance command's exit code; on bridge failure retry once,
+then do the check yourself (there's no same-role fallback bridge); and read
+the relevant `review-<topic>.md` first thing on a fresh/post-compaction
+session instead of reconstructing state from conversation history.
+Compaction is a boundary the orchestrator *marks* — `/compact` and `/clear`
+are typed by the user, not invokable by the agent.
 
 **`templates/CLAUDE-two-bridge.md`** (two-bridge mode) — same pipeline and
 orchestration rules, but with QA and Security folded into Antigravity:
@@ -293,10 +326,13 @@ The `adversarial_review` chain leads with a different model (Gemini 3.1
 Pro) than the Coder role's Gemini 3.6 Flash, so the two-bridge mode still
 gets *some* separation between who writes the code and who reviews it — it
 just can't get the two-independent-reviewers separation the three-bridge
-mode gets from Codex being a wholly separate vendor. Both lens calls must
-state their framing explicitly in the prompt (same tool, different ask) and
-must run in separate sessions from each other and from the Coder call — see
-the template's "Session continuity" section.
+mode gets from Codex being a wholly separate vendor. What it has instead is
+one reviewer asked two questions: same tool, same server, same chain in the
+same order, separated only by the framing text in the prompt. (The chain's
+Claude Opus 4.6 step is a *fallback*, so you can't count on it being the
+reviewer on any given call.) Both lens calls must state their framing
+explicitly and must run in separate sessions from each other and from the
+Coder call — see the template's "Session continuity" section.
 
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file, shared by both modes: context, per-unit
@@ -327,11 +363,14 @@ After restarting Claude Code, run `claude mcp list`.
   a session.
 - **Gate hook (if installed per Setup step 8):** ask Claude Code to `Edit`
   or `Write` any application-code file directly (not a progress file,
-  `CLAUDE.md`/`AGENTS.md`, or anything under `.claude/`/`.agents/`/
-  `skills/`). A permission prompt quoting the Gate rule should appear
-  before the edit is allowed to proceed — that's the hook firing. If it
-  doesn't fire, the settings watcher may not have picked up the new hooks
-  file; open `/hooks` once (reloads config) or restart.
+  `CLAUDE.md`/`AGENTS.md`, or anything under a *root-level* `.claude/`,
+  `.agents/`, or `skills/`). A permission prompt quoting the Gate rule
+  should appear before the edit is allowed to proceed — that's the hook
+  firing. If it doesn't fire, the settings watcher may not have picked up
+  the new hooks file; open `/hooks` once (reloads config) or restart.
+  Then ask it to edit `.claude/hooks/agent-bridges-gate.sh` — that one
+  should be **denied** outright, not prompted. If it's merely prompted, you
+  are running an older copy of the hook that can disable itself.
 
 ## Status
 
