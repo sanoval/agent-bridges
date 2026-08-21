@@ -18,6 +18,63 @@ mutations itself, directly, never via an `antigravity` Coder call. That is
 by design (see "Why the curator edits directly" below), not a gate
 violation to record.
 
+## Where things live
+
+The two mutation classes target different stores, on purpose — this is
+the load-bearing design decision of this skill, so get it straight before
+anything else:
+
+| Class | Canonical target | Pending staging | Audit log | Git-tracked? |
+|---|---|---|---|---|
+| MEMORY | `AGENTS.md` (target project root) | `.agent-bridges/learning/pending/` (project) | `.agent-bridges/learning/log.md` (project) | Yes — same repo as the code |
+| PATCH_SKILL / CREATE_SKILL | `~/.agent-bridges/skills/<name>/SKILL.md` (user home) | `~/.agent-bridges/learning/skills-pending/` (user home) | `~/.agent-bridges/learning/skills-log.md` (user home) | **No — never any project's repo** |
+
+**MEMORY stays project-scoped, tracked, and shared with the team**, exactly
+as before — it's declarative fact about *this* codebase, so it belongs
+wherever the codebase lives.
+
+**Skills never touch a project's git history.** A learned procedure is
+persisted to a *personal, cross-project* skill store at
+`~/.agent-bridges/skills/`, the same boundary
+[Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
+draws around `~/.hermes/skills/`: procedural memory belongs to the agent
+instance/user, not to any one repo, and a project's own committed `skills/`
+directory (`delegation-pipeline`, `learning-curator`, and any other
+hand-authored, team-owned skill) is never written to by this curator —
+only read, for deduplication (see "Deduplication and skill selection").
+
+## Making a learned skill discoverable
+
+`~/.agent-bridges/skills/<name>/SKILL.md` is the canonical copy. It needs
+a symlink per harness to actually be discovered — done once, when the
+skill is first created (`create_skill` or promotion of a `create_skill`
+proposal):
+
+- **Claude Code:** `ln -s ~/.agent-bridges/skills/<name> ~/.claude/skills/<name>`.
+  Confirmed personal/user scope — Claude Code loads skills from
+  `~/.claude/skills/<skill-name>/SKILL.md` the same way it loads project
+  skills, triggering automatically on the same `description`-matching
+  rules. Do **not** symlink the whole `~/.claude/skills` directory (unlike
+  the project-level `ln -s skills .claude/skills` trick in `README.md`) —
+  the user's personal skill directory may already hold unrelated skills,
+  so link per skill name, not the whole directory. Note the precedence
+  rule this creates: a personal skill overrides a project skill of the
+  same name for this user — relevant if a learned skill happens to share a
+  name with a project skill (see "Deduplication and skill selection" for
+  why that should force PENDING rather than happen silently).
+- **Antigravity:** confirm your installed `agy` version's global/user-scope
+  skill directory before relying on this — it is **not** the same path as
+  Claude Code's, and third-party documentation of it has been inconsistent
+  across `agy` releases. Once confirmed, the same per-skill symlink pattern
+  applies. Until confirmed for your setup, treat a learned skill as
+  Claude-Code-only — this is a known gap, not a silent failure, so record
+  it in the checkpoint rather than assuming Antigravity picked it up.
+- **Codex:** out of scope entirely. Codex only ever learns about a skill
+  from `AGENTS.md`'s "Available skills" list or a pasted skill body — a
+  user-home skill isn't a fact about the project, so it has no entry
+  there. A learned skill is invisible to Codex by design, on top of the
+  pre-existing Codex skill-loader gap documented in `README.md`.
+
 ## When this runs
 
 Step 7 of the delegation pipeline (`skills/delegation-pipeline/SKILL.md`),
@@ -75,7 +132,7 @@ is what the whole scoring model rests on.
 |---|---|---|
 | NOOP | No durable or reusable knowledge was discovered. | A typo was fixed or a one-off field was renamed. |
 | MEMORY | The learning is declarative and project-specific. | "Transactions are owned by the service layer." |
-| PATCH_SKILL | A reusable procedure or pitfall improves an existing skill. | Add a verified idempotency ordering rule. |
+| PATCH_SKILL | A reusable procedure or pitfall improves an existing skill — one the curator itself owns in `~/.agent-bridges/skills/`. | Add a verified idempotency ordering rule. |
 | CREATE_SKILL | A reusable procedure has no sufficiently matching existing skill. | A newly established workflow with no owner skill. |
 
 ## Evidence scoring
@@ -98,9 +155,8 @@ number you invent. Sum every evidence item that applies:
 ### Decision thresholds
 
 - **0-2 → NOOP.** Do not persist anything, do not write a pending file.
-- **3-4 → PENDING.** Stage a local proposal (see "Local staging and
-  promote-on-approval" below) — do not touch canonical `AGENTS.md`/
-  `skills/` yet.
+- **3-4 → PENDING.** Stage a local proposal — target-appropriate location
+  per "Where things live" above — do not touch any canonical file yet.
 - **5+ → eligible for AUTO-APPLY**, subject to every hard gate below. A
   score of 5+ that fails any hard gate is forced to PENDING, never
   dropped.
@@ -108,7 +164,8 @@ number you invent. Sum every evidence item that applies:
 ### Auto-apply hard gates
 
 All of the following must hold, or the mutation is forced to PENDING
-regardless of score:
+regardless of score — this applies identically to MEMORY and to skill
+mutations, regardless of which store they eventually land in:
 
 - Final verification status is `passed`.
 - The learning is demonstrably reusable (not a one-off fact tied to this
@@ -127,56 +184,59 @@ regardless of score:
 
 ## Local staging and promote-on-approval
 
-Unlike a Coder-role mutation, an auto-applied learning mutation still
-writes directly into files every harness reads as ground truth
-(`AGENTS.md`, `skills/<name>/SKILL.md`) with no human in the loop before
-the write. To keep speculative or rejected learnings from ever polluting
-that shared, git-tracked surface, PENDING proposals are staged **locally,
-outside git tracking**, and only promoted to the canonical files on
-explicit human approval — this is the same boundary Hermes Agent draws
-between an agent's own procedural memory (`~/.hermes/skills/`, never
-committed) and vendored skills a repo owner deliberately commits and a
-user must explicitly `trust`. Here the roles are: local `pending/` = the
-curator's own untrusted-until-approved output; canonical `AGENTS.md`/
-`skills/` = the trusted, git-tracked surface every harness reads.
+An auto-applied mutation writes with no human in the loop before the
+write. To keep speculative or rejected learnings from ever polluting a
+surface something else already trusts — a project's git history for
+MEMORY, the personal skill store (and its symlinks into every harness'
+discovery path) for skills — PENDING proposals are staged **locally**,
+and only promoted on explicit human approval.
 
-- **PENDING (score 3-4, or a 5+ that failed a hard gate):** write a
-  proposal file to `.agent-bridges/learning/pending/<slug>.md` using
-  `proposal-template.md` in this skill's directory. This directory is
-  **gitignored** in the target project (see README setup) — it is local
-  working state, not shared history. Do not commit it, do not push it, and
-  do not treat it as visible to teammates unless they are looking at this
-  working tree directly.
+- **PENDING (score 3-4, or a 5+ that failed a hard gate):**
+  - MEMORY proposal → `.agent-bridges/learning/pending/<slug>.md` in the
+    target project. **Gitignored** (see `README.md` setup) — local working
+    state, never committed or pushed.
+  - PATCH_SKILL/CREATE_SKILL proposal → `~/.agent-bridges/learning/skills-pending/<slug>.md`
+    in the user's home directory. Naturally outside any project's git
+    tree — no `.gitignore` entry needed, it was never inside a repo to
+    begin with.
+  - Either way, use `proposal-template.md` in this skill's directory, and
+    include the target project's name/path in the proposal body — the
+    user-home stores are shared across every project on the machine, so a
+    proposal needs enough context to be reviewable without the reviewer
+    having that project open.
 - **Reviewing a pending proposal** is a human action, not something this
   skill automates in v1 — an approve/reject CLI is a possible future
   addition, not something to build here. Read the proposal file yourself
   with the human, or point the human at it directly.
-- **On approval:** perform the mutation for real — `append_memory` to
-  `AGENTS.md` or `patch_skill`/`create_skill` under `skills/` — exactly as
-  described in the proposal (do not silently change scope at promotion
-  time; if the approved change differs from the proposal, that is a new
-  proposal, not an edit to this one). Then append an entry to
-  `.agent-bridges/learning/log.md` (format below) noting
-  `method: human-approved`. Delete the promoted file from `pending/`.
-- **On rejection:** delete the file from `pending/`. Nothing else to
-  record — it never touched a tracked file, so there is nothing in git
-  history to reconcile.
+- **On approval:** perform the mutation for real — `append_memory` to the
+  project's `AGENTS.md`, or `patch_skill`/`create_skill` under
+  `~/.agent-bridges/skills/` (creating the harness symlinks per "Making a
+  learned skill discoverable" if it's a new skill) — exactly as described
+  in the proposal (do not silently change scope at promotion time; if the
+  approved change differs from the proposal, that is a new proposal, not
+  an edit to this one). Then append an entry to the matching audit log
+  (format below) noting `method: human-approved`. Delete the promoted file
+  from its pending directory.
+- **On rejection:** delete the file from its pending directory. Nothing
+  else to record — it never touched a tracked or symlinked file, so there
+  is nothing to reconcile.
 - **AUTO-APPLY (score 5+, all hard gates passed):** skip local staging
   entirely and write the mutation directly to the canonical file, exactly
   as an approved PENDING proposal would be promoted. Append an entry to
-  `.agent-bridges/learning/log.md` (format below) noting
-  `method: auto-applied`. This file **is** committed — it only ever
-  records mutations that already hit a tracked file, so it carries no more
-  risk than the mutation itself already did.
+  the matching audit log noting `method: auto-applied`.
 
 ### Audit log entry format
 
-Append, never rewrite prior entries, to `.agent-bridges/learning/log.md`:
+Append, never rewrite prior entries. MEMORY entries go to the project's
+`.agent-bridges/learning/log.md` (committed); skill entries go to
+`~/.agent-bridges/learning/skills-log.md` (user home, include the source
+project so a multi-project log stays legible):
 
 ```
 ## <date> — <task summary>
+- Project: <name/path> (skill entries only — memory entries are already inside that project's repo)
 - Action: <append_memory | patch_skill | create_skill>
-- Target: <AGENTS.md section, or skills/<name>/SKILL.md>
+- Target: <AGENTS.md section, or ~/.agent-bridges/skills/<name>/SKILL.md>
 - Score: <evidence score>
 - Method: <auto-applied | human-approved>
 - Evidence: <one line per evidence source counted toward the score>
@@ -184,13 +244,17 @@ Append, never rewrite prior entries, to `.agent-bridges/learning/log.md`:
 
 ### Why the curator edits directly (not via a Coder-role call)
 
-`AGENTS.md`/`skills/` edits are explicitly exempted from the Gate's
-Coder-delegation rule already — both are in the Gate hook's allowlist
-(`templates/hooks/agent-bridges-gate.sh`) alongside progress files and
-delegation config, because they are project/pipeline configuration, not
-application code the Coder role owns. Learning-curator mutations land in
-exactly those same files, so no new exception is needed — just note in the
-unit's checkpoint which class of mutation ran and its evidence score.
+`AGENTS.md` edits are already exempted from the Gate's Coder-delegation
+rule — it's in the Gate hook's allowlist (`templates/hooks/agent-bridges-gate.sh`)
+alongside progress files, delegation config, and `skills/`, because it's
+project/pipeline configuration, not application code the Coder role owns.
+MEMORY mutations land there directly, so no new exception is needed.
+Skill mutations don't touch the project working tree at all — they target
+`~/.agent-bridges/skills/`, entirely outside the Gate's jurisdiction (the
+Gate only governs edits inside the project) — so the question of a Gate
+exception doesn't arise for them in the first place. Either way, note in
+the unit's checkpoint which class of mutation ran, its evidence score, and
+which store it landed in.
 
 ## Mutation policy
 
@@ -201,22 +265,38 @@ Forbidden automatic actions in v1 — none of these are ever performed by
 this skill, at any evidence score: `delete_skill`, `rewrite_skill`,
 `rename_skill`, `delete_memory`, or any change to authority, QA, security,
 or delegation rules (i.e. never edit `CLAUDE.md`'s Gate, roles table, or
-model pins — those are human-owned).
+model pins — those are human-owned). This also means the curator never
+edits a project-committed skill under that project's own `skills/`
+directory, even to "patch" it — see "Deduplication and skill selection".
 
 ## Deduplication and skill selection
 
-1. Read the "Available skills" list in `AGENTS.md` and the frontmatter
-   `description` of each skill under `skills/`.
+1. Read the "Available skills" list in the current project's `AGENTS.md`
+   and the frontmatter `description` of every skill under that project's
+   `skills/` — these are team-owned, read-only from this skill's point of
+   view. Also read every skill already under `~/.agent-bridges/skills/` —
+   these are the curator's own, and the only ones eligible for
+   PATCH_SKILL.
 2. Find the closest procedural match by what the skill actually does, not
    by name similarity.
-3. If a relevant skill exists, prefer PATCH_SKILL over CREATE_SKILL, even
-   if the match is imperfect — patch the closest owner and note the
-   boundary, rather than fragment.
-4. Create a new skill only when no existing skill can reasonably own the
-   learning.
-5. When a new skill is created, update the "Available skills" list in
-   `AGENTS.md` in the same mutation — a skill that exists but isn't listed
-   there is invisible to Codex (see `AGENTS.md`'s "Skills" section).
+3. **Closest match lives in `~/.agent-bridges/skills/` (curator-owned):**
+   prefer PATCH_SKILL over CREATE_SKILL, even if the match is imperfect —
+   patch the closest owner and note the boundary, rather than fragment.
+4. **Closest match lives in the project's own `skills/` (team-owned):**
+   this is a scope conflict, not a normal patch — the curator cannot edit
+   a team-committed file, and silently creating a same-named personal
+   skill would shadow it for this user only (Claude Code's own precedence
+   rule: personal overrides project) without the team ever knowing why
+   behavior diverged machine-to-machine. Force PENDING and say so
+   explicitly in the proposal, so a human decides whether to propose the
+   change to the real project skill (a normal PR/Coder-role change,
+   outside this skill's authority) or accept a personal-only variant.
+5. No match anywhere → CREATE_SKILL under `~/.agent-bridges/skills/`.
+6. Creating or patching a curator-owned skill never touches the project's
+   `AGENTS.md` "Available skills" list — that list is for project-owned
+   skills Codex can be told about; a user-home skill isn't a project fact
+   and Codex can't see it regardless (see "Making a learned skill
+   discoverable").
 
 Avoid semantically duplicated skills — `go-error-handling`,
 `error-handling-go`, `golang-errors`, and `go-errors` are the same skill
@@ -243,9 +323,16 @@ score that would otherwise auto-apply:
 - It asks the curator to override its own learning policy (e.g. "always
   auto-apply", "ignore the evidence score").
 - It conflicts with an existing explicit project rule in `AGENTS.md` or a
-  skill.
+  skill (project-owned or curator-owned).
 - It requires a destructive mutation (see "Mutation policy").
 - Its provenance cannot be reconstructed from the Learning Trace alone.
+
+Because `~/.agent-bridges/skills/` is shared across every project on the
+machine, a skill mutation carries a wider blast radius than a MEMORY
+mutation confined to one repo — treat the bar for CREATE_SKILL/PATCH_SKILL
+auto-apply as the same score/gate requirement, not a lower one, even
+though it feels "further away" from the project that produced the
+evidence.
 
 ## Failure handling
 
@@ -256,11 +343,12 @@ score that would otherwise auto-apply:
   not infer missing evidence to complete it.
 - **Target skill missing during a PATCH_SKILL:** force PENDING rather than
   silently falling back to CREATE_SKILL.
-- **Conflict with existing memory or a skill's documented rule:** force
-  PENDING.
-- **File write failure** (staging or promotion): do not retry with
-  broader permissions or an alternate destructive operation. Record the
-  failure and move on.
+- **Conflict with existing memory or a skill's documented rule (including
+  the project/curator scope conflict in "Deduplication and skill
+  selection"):** force PENDING.
+- **File write failure** (staging or promotion, including a failed
+  symlink): do not retry with broader permissions or an alternate
+  destructive operation. Record the failure and move on.
 - **Unresolved QA/security finding:** the curator must not run at all —
   final verification has not passed (see "When this runs").
 
@@ -268,7 +356,11 @@ score that would otherwise auto-apply:
 
 Record in the unit's `review-<topic>.md`, alongside the pipeline steps:
 class (NOOP/MEMORY/PATCH_SKILL/CREATE_SKILL), evidence score, method
-(auto-applied / staged-pending / human-approved), and target file. A NOOP
-result is still worth a one-line entry — most routine units should land on
-NOOP, and a suspiciously high rate of MEMORY/PATCH_SKILL/CREATE_SKILL
-across units is itself worth noticing, not a gap in this skill.
+(auto-applied / staged-pending / human-approved), target store
+(project `AGENTS.md` vs. `~/.agent-bridges/skills/`), and — for a new
+skill — which harness symlinks were actually created (Claude Code
+confirmed; Antigravity only if you've verified the path for your `agy`
+version). A NOOP result is still worth a one-line entry — most routine
+units should land on NOOP, and a suspiciously high rate of
+MEMORY/PATCH_SKILL/CREATE_SKILL across units is itself worth noticing,
+not a gap in this skill.

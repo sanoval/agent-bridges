@@ -48,27 +48,38 @@ though it can't trigger one itself:
   finished unit as NOOP / project-memory / a skill patch / a new skill,
   scores its evidence, and either stages a local pending proposal or
   auto-applies a narrowly-scoped mutation. Orchestrator-facing only, run as
-  step 7 of the delegation pipeline. See "Learning" below for where its
-  working state lives.
+  step 7 of the delegation pipeline. **Never writes a new or patched skill
+  into this project** — see "Learning" below for where that actually goes.
 <one line per additional project skill: `name` — one-sentence description,
 kept in sync with each skill's own frontmatter>
 
 ## Learning
 
-`learning-curator` (above) persists reusable knowledge under two different
-visibility rules — do not treat them the same:
+`learning-curator` (above) persists reusable knowledge to two entirely
+different stores depending on what it learned — do not treat them the
+same:
 
-- `.agent-bridges/learning/pending/` — proposals awaiting human review.
-  **Gitignored, local-only.** Add `.agent-bridges/learning/pending/` to
-  this project's `.gitignore`. Never commit or push a file from here.
-- `.agent-bridges/learning/log.md` — audit trail of mutations that already
-  landed in `AGENTS.md`/`skills/`, auto-applied or human-approved. **Not**
-  gitignored — commit it like any other project file; it only ever records
-  changes to files that are themselves already tracked.
+- **Project-specific facts (MEMORY)** — appended to this file, right here,
+  same as any other project fact. Staged first at
+  `.agent-bridges/learning/pending/` (**gitignored** — add
+  `.agent-bridges/learning/pending/` to this project's `.gitignore`, never
+  commit or push a file from there) if evidence is medium-confidence, or
+  applied directly if strong. The audit trail,
+  `.agent-bridges/learning/log.md`, **is** committed — it only records
+  changes already made to tracked files.
+- **Reusable procedures/skills** — never written into this project at all.
+  They persist to a personal, cross-project store at
+  `~/.agent-bridges/skills/` (outside any repo), the same boundary
+  [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
+  draws around its own `~/.hermes/skills/`. A skill learned here may still
+  trigger automatically for the person who ran the curator (Claude Code
+  reads personal skills from `~/.claude/skills/` in addition to this
+  project's `skills/`), but it is never part of this project's git history
+  and never something a teammate gets just by cloning the repo.
 
 Full policy — evidence scoring, hard gates, the promote-on-approval
-workflow, security/poisoning controls — lives in
-`skills/learning-curator/SKILL.md`, not here.
+workflow, security/poisoning controls, and exactly where each mutation
+class lands — lives in `skills/learning-curator/SKILL.md`, not here.
 
 ---
 
