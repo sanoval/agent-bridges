@@ -14,7 +14,7 @@ is not meant to accumulate.
 -->
 
 Project: `<name/path this proposal came from — always fill in for patch_skill/create_skill, since the pending directory is shared across projects>`
-Target: `<~/.agent-bridges/skills/<name>/SKILL.md or AGENTS.md>`
+Target: `<~/.agents/skills/<name>/SKILL.md or AGENTS.md>`
 Action: `<append_memory | patch_skill | create_skill>`
 Score: `<0-10>`
 Task: `<one-line task summary>`

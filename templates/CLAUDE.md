@@ -133,7 +133,7 @@ After a unit passes final verification, the pipeline's step 7 loads
 never gates release, a curator failure never changes a successful unit's
 outcome. Project-specific facts may be written to `AGENTS.md` directly
 (already exempt from the Gate above); reusable procedures never touch this
-project at all — they persist to a personal `~/.agent-bridges/skills/`
+project at all — they persist to a personal `~/.agents/skills/`
 store outside any repo, same as MEMORY does through a gitignored local
 staging step when evidence isn't strong enough to auto-apply. See that
 skill for the full policy.

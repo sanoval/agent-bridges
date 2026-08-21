@@ -142,21 +142,23 @@ understanding before Setup step 10 below:
   `.agent-bridges/learning/pending/` — that staging directory is
   **gitignored**, local working state only. The audit trail,
   `.agent-bridges/learning/log.md`, **is** committed.
-- **PATCH_SKILL / CREATE_SKILL (reusable procedures) → `~/.agent-bridges/skills/`,
+- **PATCH_SKILL / CREATE_SKILL (reusable procedures) → `~/.agents/skills/`,
   in the user's home directory — never in any project's repo, ever, at
   any evidence score.** This mirrors
   [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills),
   which persists everything the agent learns as procedural memory to
-  `~/.hermes/skills/` and never into a project it's working in. A learned
-  skill still triggers automatically for whoever ran the curator — Claude
-  Code natively discovers personal skills at `~/.claude/skills/<name>/`
-  in addition to a project's own `skills/`, so the canonical copy under
-  `~/.agent-bridges/skills/<name>/` gets a one-time symlink into that
-  path when the skill is created (see `skills/learning-curator/SKILL.md`,
-  "Making a learned skill discoverable" — Antigravity's equivalent global
-  path is not yet confirmed for this template, and Codex has no
-  user-scope skill loader at all, so a learned skill is Claude-Code-only
-  by default). Staging for these lives at
+  `~/.hermes/skills/` and never into a project it's working in. `~/.agents/skills/`
+  is deliberately the same directory name as this project's own
+  `.agents/skills` (Antigravity's confirmed workspace-scope discovery
+  path — see "Centralizing memory across harnesses" above), just resolved
+  from `$HOME` instead of the project root, so Antigravity reads it there
+  directly with no symlink needed. Claude Code doesn't read
+  `~/.agents/skills/` natively, though — it discovers personal skills at
+  `~/.claude/skills/<name>/` — so the canonical copy gets a one-time
+  per-skill symlink into that path when the skill is created (see
+  `skills/learning-curator/SKILL.md`, "Making a learned skill
+  discoverable"; Codex still has no user-scope skill loader at all, same
+  gap as at the project level). Staging for these lives at
   `~/.agent-bridges/learning/skills-pending/` and the audit trail at
   `~/.agent-bridges/learning/skills-log.md` — both outside every project's
   git tree, and shared across every project on the machine (each entry
@@ -294,15 +296,16 @@ changes.
       `AGENTS.md` in sync, same as any other skill (already done if you
       copied `templates/AGENTS.md`'s "Skills"/"Learning" sections as-is).
     - **Machine-side (one-time per machine, not per project):** create
-      `~/.agent-bridges/skills/` and `~/.agent-bridges/learning/` (with a
+      `~/.agents/skills/` and `~/.agent-bridges/learning/` (with a
       `skills-pending/` subdirectory and an empty `skills-log.md`) in the
       user's home directory. Nothing here is project-specific and nothing
-      here is ever committed — nothing to add to any `.gitignore`, since
-      it never lives inside a project's working tree in the first place.
-      Confirm your `agy` version's global/user-scope skill directory before
-      relying on Antigravity picking up a learned skill natively — see
-      `skills/learning-curator/SKILL.md` for why this template doesn't
-      hardcode that path.
+      here is ever committed — nothing to add to any `.gitignore`, since it
+      never lives inside a project's working tree in the first place.
+      Symlink `~/.agents/skills/<name>` into `~/.claude/skills/<name>` per
+      skill for Claude Code to discover it too (Antigravity reads
+      `~/.agents/skills/` directly, no symlink needed — see
+      `skills/learning-curator/SKILL.md`, "Making a learned skill
+      discoverable").
 
 ### Operational notes
 
@@ -389,7 +392,7 @@ decide whether a mutation is safe to auto-apply, must be staged for human
 review, or dropped. Project-memory mutations reach `AGENTS.md` directly
 (auto-applied or human-approved) and are git-tracked like any other
 project file; skill mutations never touch the project at all — they go to
-a personal `~/.agent-bridges/skills/` store instead — see "Learning-curator
+a personal `~/.agents/skills/` store instead — see "Learning-curator
 storage: memory vs. skills" above for why that split exists and what it
 means for setup.
 
@@ -434,7 +437,7 @@ After restarting Claude Code, run `claude mcp list`.
   auto-applied change to `AGENTS.md`/`.agent-bridges/learning/log.md`
   should appear as a normal tracked diff. After a unit that produced a
   CREATE_SKILL, confirm the new skill exists at
-  `~/.agent-bridges/skills/<name>/SKILL.md`, that `~/.claude/skills/<name>`
+  `~/.agents/skills/<name>/SKILL.md`, that `~/.claude/skills/<name>`
   is a symlink to it, and that `git status` inside the project shows
   **nothing** related to it — a skill mutation touching the project's
   working tree at all is the bug this design exists to prevent.

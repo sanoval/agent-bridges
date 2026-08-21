@@ -69,7 +69,7 @@ same:
   changes already made to tracked files.
 - **Reusable procedures/skills** — never written into this project at all.
   They persist to a personal, cross-project store at
-  `~/.agent-bridges/skills/` (outside any repo), the same boundary
+  `~/.agents/skills/` (outside any repo), the same boundary
   [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
   draws around its own `~/.hermes/skills/`. A skill learned here may still
   trigger automatically for the person who ran the curator (Claude Code
