@@ -6,9 +6,10 @@
 # Coder-role delegation call, not Claude Code's own tools.
 #
 # Files matching the allowlist below are exempt (progress files, project
-# memory, delegation config, skills) and pass through silently. Everything
-# else surfaces a permission prompt so a human sees and confirms the
-# bypass instead of it happening silently.
+# memory, delegation config, skills, learning-curator working state under
+# .agent-bridges/) and pass through silently. Everything else surfaces a
+# permission prompt so a human sees and confirms the bypass instead of it
+# happening silently.
 #
 # This hook does not cover Bash commands that mutate tracked files —
 # reliably detecting those in general isn't robust via the `if` matcher
@@ -28,7 +29,7 @@ if [ -z "$file_path" ]; then
   exit 0
 fi
 
-allow_regex='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)review-[^/]+(-archive)?\.md$|(^|/)\.claude/|(^|/)\.agents/|(^|/)skills/'
+allow_regex='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)review-[^/]+(-archive)?\.md$|(^|/)\.claude/|(^|/)\.agents/|(^|/)skills/|(^|/)\.agent-bridges/'
 
 if printf '%s' "$file_path" | grep -qE "$allow_regex"; then
   exit 0

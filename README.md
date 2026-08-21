@@ -69,6 +69,9 @@ templates/
   skills/delegation-pipeline/
     SKILL.md                    — on-demand: pipeline steps, payload contracts, session continuity, example prompts (both modes)
     two-bridge.md                — two-bridge deltas to SKILL.md: step 4 replacement, adversarial_review lens calls
+  skills/learning-curator/
+    SKILL.md                    — on-demand: post-verification learning — classification, evidence scoring, hard gates, local staging/promote-on-approval, security controls (pipeline step 7, both modes)
+    proposal-template.md        — format for a pending learning proposal; staged project-side for memory, ~/.agent-bridges/ for skills — see SKILL.md
 ```
 
 ## Centralizing memory across harnesses
@@ -121,9 +124,54 @@ what exists, even though it can't trigger one itself — that's the one part
 of this that stays a workaround rather than a real fix, since it's a
 structural gap in Codex, not a format mismatch this repo can paper over.
 
-One skill, `delegation-pipeline`, ships with this repo itself — see "Using
-the templates" below. It's orchestrator-facing (Claude Code/Antigravity
-only) and is never pasted into a Codex call.
+Two skills ship with this repo itself — see "Using the templates" below.
+Both are orchestrator-facing (Claude Code/Antigravity only) and are never
+pasted into a Codex call: `delegation-pipeline` and `learning-curator`.
+
+## Learning-curator storage: memory vs. skills
+
+`learning-curator` (see "Using the templates") splits what it learns
+across two stores that don't share a git-visibility rule — worth
+understanding before Setup step 10 below:
+
+- **MEMORY (project-specific facts) → `AGENTS.md`, in the target
+  project.** Git-tracked, shared with the team and every harness, same as
+  any other project fact. A mutation lands here only once it's either
+  auto-applied (evidence score ≥5, every hard gate passed) or a human has
+  approved a pending proposal staged at
+  `.agent-bridges/learning/pending/` — that staging directory is
+  **gitignored**, local working state only. The audit trail,
+  `.agent-bridges/learning/log.md`, **is** committed.
+- **PATCH_SKILL / CREATE_SKILL (reusable procedures) → `~/.agents/skills/`,
+  in the user's home directory — never in any project's repo, ever, at
+  any evidence score.** This mirrors
+  [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills),
+  which persists everything the agent learns as procedural memory to
+  `~/.hermes/skills/` and never into a project it's working in. `~/.agents/skills/`
+  is deliberately the same directory name as this project's own
+  `.agents/skills` (Antigravity's confirmed workspace-scope discovery
+  path — see "Centralizing memory across harnesses" above), just resolved
+  from `$HOME` instead of the project root, so Antigravity reads it there
+  directly with no symlink needed. Claude Code doesn't read
+  `~/.agents/skills/` natively, though — it discovers personal skills at
+  `~/.claude/skills/<name>/` — so the canonical copy gets a one-time
+  per-skill symlink into that path when the skill is created (see
+  `skills/learning-curator/SKILL.md`, "Making a learned skill
+  discoverable"; Codex still has no user-scope skill loader at all, same
+  gap as at the project level). Staging for these lives at
+  `~/.agent-bridges/learning/skills-pending/` and the audit trail at
+  `~/.agent-bridges/learning/skills-log.md` — both outside every project's
+  git tree, and shared across every project on the machine (each entry
+  records which project it came from).
+
+The reasoning behind the split: MEMORY is a fact about *this* codebase, so
+it belongs wherever the codebase lives, versioned with it, reviewable by
+the team. A skill is a *procedure* the agent figured out — reusable
+regardless of which project it was learned in, and never something an
+auto-apply should be allowed to inject into a shared codebase with no PR
+review in between. Splitting the store, not just gating the write, is what
+makes that boundary durable rather than a rule that's easy to erode one
+"just this once" mutation at a time.
 
 ## Which mode do I need?
 
@@ -216,7 +264,8 @@ changes.
    there). This installs a `PreToolUse` hook on `Edit`/`Write`/
    `NotebookEdit`: edits to progress files (`review-*.md`), project memory
    (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), delegation config (`.claude/`,
-   `.agents/`), or `skills/` pass through untouched; everything else
+   `.agents/`), `skills/`, or learning-curator working state
+   (`.agent-bridges/`) pass through untouched; everything else
    (application code) surfaces a permission prompt quoting the Gate rule,
    so a bypass becomes something the user sees and approves rather than
    something that happens silently. It does not cover Bash commands that
@@ -229,6 +278,34 @@ changes.
    setup step for it) so the config travels with the repo. Commit
    `AGENTS.md`, `skills/`, and the `.claude/skills` / `.agents/skills`
    symlinks too — all of it is meant to be checked in, not local-only.
+10. **Enable the learning curator (optional, recommended).** Two parts —
+    project-side (for MEMORY) and machine-side (for skills), since they use
+    different stores (see "Learning-curator storage: memory vs. skills"
+    above):
+    - **Project-side:** copy `templates/skills/learning-curator/` into the
+      target project's `skills/` directory alongside `delegation-pipeline/`
+      (same symlink setup from step 7 covers it — nothing extra to link).
+      Create `.agent-bridges/learning/log.md` (empty file, committed) in
+      the target project, then add this line to the project's
+      `.gitignore`:
+      ```
+      .agent-bridges/learning/pending/
+      ```
+      Do **not** gitignore `.agent-bridges/learning/log.md` itself — only
+      the `pending/` subdirectory. Keep the "Available skills" entry in
+      `AGENTS.md` in sync, same as any other skill (already done if you
+      copied `templates/AGENTS.md`'s "Skills"/"Learning" sections as-is).
+    - **Machine-side (one-time per machine, not per project):** create
+      `~/.agents/skills/` and `~/.agent-bridges/learning/` (with a
+      `skills-pending/` subdirectory and an empty `skills-log.md`) in the
+      user's home directory. Nothing here is project-specific and nothing
+      here is ever committed — nothing to add to any `.gitignore`, since it
+      never lives inside a project's working tree in the first place.
+      Symlink `~/.agents/skills/<name>` into `~/.claude/skills/<name>` per
+      skill for Claude Code to discover it too (Antigravity reads
+      `~/.agents/skills/` directly, no symlink needed — see
+      `skills/learning-curator/SKILL.md`, "Making a learned skill
+      discoverable").
 
 ### Operational notes
 
@@ -305,6 +382,20 @@ parallel — same server), each lens call stating its framing explicitly and
 running in its own fresh session (never `follow_up` one lens into the
 other or into the Coder session).
 
+**`templates/skills/learning-curator/SKILL.md`** — loaded on demand as
+step 7 of the delegation pipeline, after a unit passes final verification.
+Non-blocking: it never gates release, and a curator failure never turns a
+successful unit into a failed one. It classifies the unit's outcome as
+NOOP, project memory, a patch to an existing skill, or a new skill, using
+an evidence-provenance score (not a model-invented confidence number) to
+decide whether a mutation is safe to auto-apply, must be staged for human
+review, or dropped. Project-memory mutations reach `AGENTS.md` directly
+(auto-applied or human-approved) and are git-tracked like any other
+project file; skill mutations never touch the project at all — they go to
+a personal `~/.agents/skills/` store instead — see "Learning-curator
+storage: memory vs. skills" above for why that split exists and what it
+means for setup.
+
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file, shared by both modes: context, per-unit
 status with cited requirements and delegation session IDs, a gap list, a
@@ -339,6 +430,17 @@ After restarting Claude Code, run `claude mcp list`.
   before the edit is allowed to proceed — that's the hook firing. If it
   doesn't fire, the settings watcher may not have picked up the new hooks
   file; open `/hooks` once (reloads config) or restart.
+- **Learning-curator storage (if enabled per Setup step 10):** after a
+  unit where the curator produced a MEMORY proposal, run `git status` —
+  `.agent-bridges/learning/pending/` should **not** appear as untracked
+  (confirms `.gitignore` is catching it), while a staged-and-promoted or
+  auto-applied change to `AGENTS.md`/`.agent-bridges/learning/log.md`
+  should appear as a normal tracked diff. After a unit that produced a
+  CREATE_SKILL, confirm the new skill exists at
+  `~/.agents/skills/<name>/SKILL.md`, that `~/.claude/skills/<name>`
+  is a symlink to it, and that `git status` inside the project shows
+  **nothing** related to it — a skill mutation touching the project's
+  working tree at all is the bug this design exists to prevent.
 
 ## Status
 
