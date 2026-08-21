@@ -127,3 +127,10 @@ self-audit format. Do not run a unit from memory of this file alone — the
 rules above (Gate, Do NOT delegate, model pins) are the parts that must
 never be missed even if the skill fails to load; the mechanics of actually
 running a unit are the skill's job.
+
+After a unit passes final verification, the pipeline's step 7 loads
+`learning-curator` (`skills/learning-curator/SKILL.md`) — non-blocking,
+never gates release, a curator failure never changes a successful unit's
+outcome. It may write directly to `AGENTS.md`/`skills/` (already exempt
+from the Gate above) or stage a local, gitignored pending proposal; see
+that skill for the full policy.

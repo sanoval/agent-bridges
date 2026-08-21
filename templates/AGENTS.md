@@ -44,8 +44,31 @@ though it can't trigger one itself:
   Antigravity trigger it natively) — this is the one skill never pasted into
   a Codex prompt, since Codex plays a fixed QA/Security role in the pipeline
   this skill describes, not the orchestrator role.
+- `learning-curator` — post-verification, non-blocking: classifies a
+  finished unit as NOOP / project-memory / a skill patch / a new skill,
+  scores its evidence, and either stages a local pending proposal or
+  auto-applies a narrowly-scoped mutation. Orchestrator-facing only, run as
+  step 7 of the delegation pipeline. See "Learning" below for where its
+  working state lives.
 <one line per additional project skill: `name` — one-sentence description,
 kept in sync with each skill's own frontmatter>
+
+## Learning
+
+`learning-curator` (above) persists reusable knowledge under two different
+visibility rules — do not treat them the same:
+
+- `.agent-bridges/learning/pending/` — proposals awaiting human review.
+  **Gitignored, local-only.** Add `.agent-bridges/learning/pending/` to
+  this project's `.gitignore`. Never commit or push a file from here.
+- `.agent-bridges/learning/log.md` — audit trail of mutations that already
+  landed in `AGENTS.md`/`skills/`, auto-applied or human-approved. **Not**
+  gitignored — commit it like any other project file; it only ever records
+  changes to files that are themselves already tracked.
+
+Full policy — evidence scoring, hard gates, the promote-on-approval
+workflow, security/poisoning controls — lives in
+`skills/learning-curator/SKILL.md`, not here.
 
 ---
 

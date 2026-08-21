@@ -69,6 +69,9 @@ templates/
   skills/delegation-pipeline/
     SKILL.md                    — on-demand: pipeline steps, payload contracts, session continuity, example prompts (both modes)
     two-bridge.md                — two-bridge deltas to SKILL.md: step 4 replacement, adversarial_review lens calls
+  skills/learning-curator/
+    SKILL.md                    — on-demand: post-verification learning — classification, evidence scoring, hard gates, local staging/promote-on-approval, security controls (pipeline step 7, both modes)
+    proposal-template.md        — format for a pending learning proposal staged under .agent-bridges/learning/pending/ in the target project
 ```
 
 ## Centralizing memory across harnesses
@@ -121,9 +124,39 @@ what exists, even though it can't trigger one itself — that's the one part
 of this that stays a workaround rather than a real fix, since it's a
 structural gap in Codex, not a format mismatch this repo can paper over.
 
-One skill, `delegation-pipeline`, ships with this repo itself — see "Using
-the templates" below. It's orchestrator-facing (Claude Code/Antigravity
-only) and is never pasted into a Codex call.
+Two skills ship with this repo itself — see "Using the templates" below.
+Both are orchestrator-facing (Claude Code/Antigravity only) and are never
+pasted into a Codex call: `delegation-pipeline` and `learning-curator`.
+
+## Learning-curator staging
+
+`learning-curator` (see "Using the templates") writes to two places in a
+target project, and they carry deliberately different git visibility —
+worth understanding before Setup step 10 below:
+
+- **`AGENTS.md` / `skills/<name>/SKILL.md`** — the same git-tracked,
+  shared-with-every-harness files `templates/AGENTS.md` and `skills/`
+  already are. A mutation lands here only once it's either auto-applied
+  (evidence score ≥5, every hard gate passed) or a human has approved a
+  pending proposal. Once it's here, it's exactly as trusted as any other
+  project fact or skill — it's what all three harnesses read.
+- **`.agent-bridges/learning/pending/`** — proposals awaiting human
+  review (evidence score 3-4, or a ≥5 that failed a hard gate). This
+  directory is **gitignored**, not committed, local working state only.
+
+The split matters because an auto-applied or approved mutation writes
+directly into files every harness treats as ground truth, with no PR
+review in between — the same trust boundary
+[Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
+draws between an agent's own procedural memory (`~/.hermes/skills/`, never
+committed to any project) and a repo's vendored skills (committed, but
+requiring an explicit `hermes skills trust` before they're loaded). Here
+that boundary is: unreviewed curator output never touches the git-tracked
+surface at all, staying local until a human promotes it — only reviewed
+(or hard-gate-cleared) output ever becomes a tracked file. `.agent-bridges/learning/log.md`
+sits on the tracked side deliberately — it only ever records mutations
+that already hit `AGENTS.md`/`skills/`, so it carries no more exposure
+than those mutations already did.
 
 ## Which mode do I need?
 
@@ -216,7 +249,8 @@ changes.
    there). This installs a `PreToolUse` hook on `Edit`/`Write`/
    `NotebookEdit`: edits to progress files (`review-*.md`), project memory
    (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), delegation config (`.claude/`,
-   `.agents/`), or `skills/` pass through untouched; everything else
+   `.agents/`), `skills/`, or learning-curator working state
+   (`.agent-bridges/`) pass through untouched; everything else
    (application code) surfaces a permission prompt quoting the Gate rule,
    so a bypass becomes something the user sees and approves rather than
    something that happens silently. It does not cover Bash commands that
@@ -229,6 +263,20 @@ changes.
    setup step for it) so the config travels with the repo. Commit
    `AGENTS.md`, `skills/`, and the `.claude/skills` / `.agents/skills`
    symlinks too — all of it is meant to be checked in, not local-only.
+10. **Enable the learning curator (optional, recommended).** Copy
+    `templates/skills/learning-curator/` into the target project's
+    `skills/` directory alongside `delegation-pipeline/` (same symlink
+    setup from step 7 covers it — nothing extra to link). Create
+    `.agent-bridges/learning/log.md` (empty file, committed) in the target
+    project, then add this line to the project's `.gitignore`:
+    ```
+    .agent-bridges/learning/pending/
+    ```
+    Do **not** gitignore `.agent-bridges/learning/log.md` itself — only the
+    `pending/` subdirectory. See "Learning-curator staging" above for why
+    the two are treated differently. Keep the "Available skills" entry in
+    `AGENTS.md` in sync, same as any other skill (already done if you
+    copied `templates/AGENTS.md`'s "Skills"/"Learning" sections as-is).
 
 ### Operational notes
 
@@ -305,6 +353,19 @@ parallel — same server), each lens call stating its framing explicitly and
 running in its own fresh session (never `follow_up` one lens into the
 other or into the Coder session).
 
+**`templates/skills/learning-curator/SKILL.md`** — loaded on demand as
+step 7 of the delegation pipeline, after a unit passes final verification.
+Non-blocking: it never gates release, and a curator failure never turns a
+successful unit into a failed one. It classifies the unit's outcome as
+NOOP, project memory, a patch to an existing skill, or a new skill, using
+an evidence-provenance score (not a model-invented confidence number) to
+decide whether a mutation is safe to auto-apply, must be staged for human
+review, or dropped. Mutations that reach `AGENTS.md`/`skills/` directly
+(auto-applied or human-approved) are git-tracked like any other project
+file; proposals still awaiting review are staged locally under
+`.agent-bridges/learning/pending/` and are **not** — see "Learning-curator
+staging" above for why that boundary exists and what it means for setup.
+
 **`templates/review-topic-template.md`** — the structure for that
 `review-<topic>.md` progress file, shared by both modes: context, per-unit
 status with cited requirements and delegation session IDs, a gap list, a
@@ -339,6 +400,12 @@ After restarting Claude Code, run `claude mcp list`.
   before the edit is allowed to proceed — that's the hook firing. If it
   doesn't fire, the settings watcher may not have picked up the new hooks
   file; open `/hooks` once (reloads config) or restart.
+- **Learning-curator staging (if enabled per Setup step 10):** run
+  `git status` after a unit where the curator staged a PENDING proposal —
+  `.agent-bridges/learning/pending/` should **not** appear as untracked
+  (confirms `.gitignore` is catching it), while a staged or promoted change
+  to `AGENTS.md`/`skills/`/`.agent-bridges/learning/log.md` should appear
+  as a normal tracked diff.
 
 ## Status
 

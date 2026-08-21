@@ -53,6 +53,13 @@ file assumes you've already read that.
    to draft the changelog entry / doc update. This is drafting only — you
    still review and commit it yourself, same as any other Antigravity
    output. Also a new session, not a continuation of the Coder session.
+7. **Learn** (you — non-blocking, no bridge call). Once step 5 (Reconcile)
+   confirms final verification passed, load the `learning-curator` skill
+   (`skills/learning-curator/SKILL.md`) and let it classify the unit as
+   NOOP, MEMORY, PATCH_SKILL, or CREATE_SKILL from a compact trace of what
+   you already verified. Order relative to step 6 doesn't matter — this
+   never gates release. A curator failure never changes the unit's outcome;
+   see that skill's "Failure handling".
 
 Never let Antigravity call Codex directly, or vice versa — you are always
 the one relaying the diff between roles. No bidirectional delegation, no
@@ -192,7 +199,9 @@ Antigravity `delegate` (Release Writer):
   which role (spell out the Antigravity role — Analyzer/Coder/Release
   Writer — since all three share one server in the tally), the returned
   session/thread id, and the verified outcome. Do this before starting the
-  next unit of work.
+  next unit of work. Step 7 (Learn) gets the same treatment — see
+  `learning-curator/SKILL.md`'s "Checkpoint entry" for what to record; a
+  NOOP outcome still gets a one-line entry.
 - **Checkpoint after every major decision.** If you reject an Antigravity
   diff and send it back, or override a QA/Security finding, write it to the
   progress file's "Pendekatan yang sudah dicoba & gagal" section immediately,
