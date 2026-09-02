@@ -22,7 +22,7 @@ restating its value. The only other place a literal may appear is
 
 | Pin | Value | Applies to |
 |---|---|---|
-| Antigravity pin | `Gemini 3.7 Flash` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on `AGY_DEFAULT_MODEL` as anything but a fallback |
+| Antigravity pin | `gemini-3.7-flash-medium` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on `AGY_DEFAULT_MODEL` as anything but a fallback |
 | QA pin | `5.6 Terra` | `codex-qa` — set once via the codex `qa` profile, not per call |
 | Security pin | `5.6 Sol` | `codex-security` — set once via the codex `security` profile, not per call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |

@@ -155,11 +155,11 @@ changes.
 3. Register the MCP server(s) at user scope:
    - **Two-bridge mode** (Antigravity only):
      ```bash
-     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"Gemini 3.7 Flash"},"timeout":600000}'
+     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"gemini-3.7-flash-medium"},"timeout":600000}'
      ```
    - **Three-bridge mode** (Antigravity + both Codex instances):
      ```bash
-     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"Gemini 3.7 Flash"},"timeout":600000}'
+     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"gemini-3.7-flash-medium"},"timeout":600000}'
      claude mcp add-json -s user codex-qa '{"command":"codex","args":["--profile","qa","mcp-server"],"timeout":600000}'
      claude mcp add-json -s user codex-security '{"command":"codex","args":["--profile","security","mcp-server"],"timeout":600000}'
      ```
