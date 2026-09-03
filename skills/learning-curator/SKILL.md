@@ -37,7 +37,7 @@ wherever the codebase lives.
 persisted to a *personal, cross-project* skill store at
 `~/.agents/skills/` — deliberately the same directory name as this
 project's own `.agents/skills` (Antigravity's confirmed workspace-scope
-discovery path, see `README.md` "Centralizing memory across harnesses"),
+discovery path, see `docs/ARCHITECTURE.md` "Centralizing memory across harnesses"),
 just resolved from `$HOME` instead of the project root, mirroring
 [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)'s
 `~/.hermes/skills/`: procedural memory belongs to the agent instance/user,
@@ -50,12 +50,12 @@ deduplication (see "Deduplication and skill selection").
 
 `~/.agents/skills/<name>/SKILL.md` is the canonical copy — one store,
 shared across harnesses, mirroring the project-level canonical-plus-symlink
-pattern in `README.md` (`skills/` there, symlinked into
+pattern in `docs/ARCHITECTURE.md` (`skills/` there, symlinked into
 `.claude/skills`/`.agents/skills`) one level up at `$HOME`:
 
 - **Antigravity/`agy`:** reads `~/.agents/skills/` directly, no symlink
   needed — this is the global counterpart of the workspace-scope
-  `.agents/skills` path `README.md` already documents, so the same
+  `.agents/skills` path `docs/ARCHITECTURE.md` already documents, so the same
   discovery mechanism applies one directory up. As with any cross-`agy`-
   version claim in this template, confirm it against your installed
   version if a learned skill doesn't seem to trigger.
@@ -72,7 +72,7 @@ pattern in `README.md` (`skills/` there, symlinked into
   skill (see "Deduplication and skill selection" for why that should force
   PENDING rather than happen silently).
 - **Codex:** still out of scope — Codex has no per-task skill loader
-  regardless of location (see `README.md`'s Codex-gap note). It never
+  regardless of location (see `docs/SETUP.md`'s Codex-gap note). It never
   discovers `~/.agents/skills/` on its own; a learned skill only reaches a
   `codex-qa`/`codex-security` prompt if Claude Code pastes its body in,
   same workaround as a project skill, just sourced from the global store
@@ -196,7 +196,7 @@ and only promoted on explicit human approval.
 
 - **PENDING (score 3-4, or a 5+ that failed a hard gate):**
   - MEMORY proposal → `.agent-bridges/learning/pending/<slug>.md` in the
-    target project. **Gitignored** (see `README.md` setup) — local working
+    target project. **Gitignored** (see `docs/SETUP.md`) — local working
     state, never committed or pushed.
   - PATCH_SKILL/CREATE_SKILL proposal → `~/.agent-bridges/learning/skills-pending/<slug>.md`
     in the user's home directory. Naturally outside any project's git

@@ -1,146 +1,68 @@
 # agent-bridges
 
-Config and templates for a fixed-role delegation pipeline that pairs
-**Claude Code** with three MCP bridges:
+A fixed-role delegation pipeline that pairs **Claude Code** with three MCP
+bridges, each with one fixed job:
 
-- **Antigravity** (`agy-bridge` MCP server, pinned to the Antigravity pin)
-  plays three roles across the pipeline: **Document Analyzer**,
-  **Coder/Executor**, **Release/Changelog Writer**.
-- **Codex QA** (`codex-qa`, QA pin) — **QA Engineer**.
-- **Codex Security** (`codex-security`, Security pin) — **Security Engineer**.
-- **Claude Code** is **Planner and Code Reviewer**, on whatever model you
-  pick per plan. It's the only agent with tool access, repo/session state,
-  and write permission — it plans, reviews first, and has final say on
-  every bridge output.
+| Role | Bridge |
+|---|---|
+| Document Analyzer, Coder/Executor, Release-Changelog Writer | **Antigravity** (`agy-bridge` MCP server) |
+| QA Engineer | **Codex QA** (`codex-qa`) |
+| Security Engineer | **Codex Security** (`codex-security`) |
+| Planner and Code Reviewer, final say on every bridge output | **Claude Code** |
+
+Claude Code is the only agent with tool access, repo/session state, and
+write permission — it plans, reviews first, and owns verification (a
+delegated finding is never the sole basis for an edit until checked; see
+"Parallelism, failures, and verification" in `templates/CLAUDE.md`).
 
 ## Why
 
 Routing everything through one model is wasteful when another provider
-fits a role better. Instead of routing task-by-task, each bridge gets a
-fixed job: Antigravity ingests specs, writes the code, then drafts release
-notes; Codex QA always tests the diff; Codex Security always reviews it
-for exploits; Claude Code always plans, reviews before either Codex role
-sees a diff, and has final say — including over the docs Antigravity
-drafts.
+fits a role better. Antigravity ingests specs, writes the code, then
+drafts release notes; Codex QA always tests the diff; Codex Security
+always reviews it for exploits; Claude Code always plans, reviews before
+either Codex role sees a diff, and has final say — including over the
+docs Antigravity drafts. Delegating also keeps Claude Code's own context
+free of work — reading a large file, diffing a big repo, running QA/
+security — where only the *answer* is needed, not the investigation.
 
-Claude Code owns verification: a delegated finding is never the sole basis
-for an edit until checked (see "Parallelism, failures, and verification"
-in `templates/CLAUDE.md`). Reading a large file, diffing a big repo, or
-running QA/security burns context fast — often only the *answer* is
-needed, not the investigation — so the bridges return results without
-Claude Code carrying that context itself.
+For the full design rationale (topology, session continuity, memory
+sharing across harnesses, learning-curator internals), see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Architecture
+## Install
 
-- **One direction only.** Claude Code calls all three bridges; none of
-  them call back into Claude Code or each other. Execution authority stays
-  at one point.
-- **Claude Code = MCP host.** Antigravity (`antigravity` server, running
-  `agy-bridge`) and two separate Codex instances — `codex-qa` and
-  `codex-security` — are three independent MCP servers over JSON-RPC 2.0.
-  Both Codex instances run the same binary but under different profiles
-  and don't share sessions.
-- **Session continuity.** Antigravity uses `follow_up` with its
-  `session_id`. Each Codex instance uses its own `codex-reply` with the
-  `threadId` *that instance* returned — not valid across instances.
-
-## Repo layout
-
-This repo is both a **Claude Code plugin** (installable via `/plugin`, see
-"Setup" below) and a **marketplace** for itself — `.claude-plugin/` holds
-the manifests, everything else at the plugin root ships automatically once
-the plugin is enabled:
+No clone needed — Claude Code pulls this repo itself. Run these as two
+separate commands, not as one pasted block — pasting both lines at once
+can merge them into a single command and break the owner/repo argument:
 
 ```
-.claude-plugin/
-  marketplace.json               — self-hosted marketplace listing this repo's one plugin
-  plugin.json                    — plugin manifest (name, version — bump this to ship an update)
-skills/delegation-pipeline/
-  SKILL.md                       — pipeline steps, payload contracts, session continuity, example prompts
-  two-bridge.md                  — two-bridge deltas: step 4 replacement, adversarial_review lens calls
-skills/learning-curator/
-  SKILL.md                       — post-verification learning: classification, evidence scoring, hard gates
-  proposal-template.md           — format for a pending learning proposal
-hooks/
-  hooks.json                     — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
-  agent-bridges-gate.sh          — the Gate-enforcement script referenced by hooks.json
-.mcp.json                        — antigravity/codex-qa/codex-security server definitions, auto-registered on enable
-templates/
-  AGENTS.md                      — shared project memory, read by all three harnesses (you merge this into your project)
-  CLAUDE.md                      — always-on core: role/pin table, the Gate, "Do NOT delegate", checkpoint discipline (you merge this into your project)
-  CLAUDE-two-bridge-overlay.md   — appended when no Codex subscription is available (two-bridge mode)
-  review-topic-template.md       — structure for a persistent review-<topic>.md progress file
+/plugin marketplace add sanoval/agent-bridges
 ```
 
-`skills/`, `hooks/`, and `.mcp.json` are **plugin-owned** — installing the
-plugin is all that's needed for those, no copying, and `/plugin update`
-picks up new versions. `templates/` is **not** plugin-distributed content:
-`CLAUDE.md`/`AGENTS.md` become part of *your* project's own memory files,
-and a plugin has no mechanism to inject into a file it doesn't own — that
-half still needs the manual copy/merge in "Setup" below.
-
-## Centralizing memory across harnesses
-
-Each harness reads its own memory file, so without coordination you get
-three copies of the same facts drifting apart. Instead:
-
-- **Codex** reads `AGENTS.md` natively.
-- **Claude Code** reads `CLAUDE.md`, which opens with `@AGENTS.md` so it
-  pulls in the same content.
-- **Antigravity** reads `AGENTS.md` natively too (as of its CLI migration
-  from Gemini CLI) — no symlink needed.
-
-Edit `AGENTS.md` once, all three harnesses see it. Put project facts
-(build/test commands, code style, layout) in `AGENTS.md`; keep
-delegation/routing rules in `CLAUDE.md` below the import line.
-
-**Skills** work the same way between Claude Code and Antigravity for any
-skill your *project* owns, since their skill formats match almost exactly
-(YAML frontmatter + markdown body). They just look in different places:
-
-- Claude Code: `.claude/skills/<name>/SKILL.md`
-- Antigravity: `.agents/skills/<name>/SKILL.md`
-
-Keep one canonical `skills/<name>/SKILL.md` at the project root and
-symlink both paths to it:
-```bash
-ln -s skills .claude/skills
-ln -s skills .agents/skills
 ```
-Codex has no skill loader, so it can't discover `skills/` — the
-"Available skills" list in `AGENTS.md` at least tells it what exists.
+/plugin install agent-bridges@agent-bridges
+```
 
-The two orchestrator skills this repo ships — `delegation-pipeline` and
-`learning-curator` — are the one exception to that pattern: they come from
-the `agent-bridges` **plugin**, not from a project-local `skills/`
-directory, so Claude Code discovers them globally once the plugin is
-enabled and neither Antigravity nor Codex ever sees them (by design —
-both are orchestrator-facing, never pasted into a Codex call).
+This registers all three MCP servers (`antigravity`, `codex-qa`,
+`codex-security`), the `delegation-pipeline` and `learning-curator`
+skills, and the Gate `PreToolUse` hook — and keeps them current
+(`/plugin install agent-bridges@agent-bridges --update` to force a check).
 
-## Learning-curator storage: memory vs. skills
+Not on a Codex subscription? `codex-qa`/`codex-security` will simply fail
+to connect (`claude mcp list` shows them **Failed**) — harmless in
+two-bridge mode, see "Which mode do I need?" below.
 
-`learning-curator` splits what it learns across two stores:
+**Scope this to the projects that actually run the pipeline.** The Gate
+hook fires on every `Edit`/`Write`/`NotebookEdit` in any project where the
+plugin is enabled — enable it per-project (project `.claude/settings.json`
+`enabledPlugins`) rather than at user scope, or you'll get Gate prompts in
+unrelated repos. See [Configure team marketplaces](https://code.claude.com/docs/en/discover-plugins#configure-team-marketplaces).
 
-- **MEMORY (project facts) → `AGENTS.md`** in the target project.
-  Git-tracked. A mutation lands here once auto-applied (evidence score ≥5,
-  every hard gate passed) or human-approved from
-  `.agent-bridges/learning/pending/` (gitignored, local only). The audit
-  trail `.agent-bridges/learning/log.md` **is** committed.
-- **PATCH_SKILL / CREATE_SKILL (reusable procedures) → `~/.agents/skills/`**,
-  never in any project repo, at any evidence score — same directory name
-  Antigravity already reads for workspace skills, just resolved from
-  `$HOME`. Claude Code discovers personal skills at `~/.claude/skills/`,
-  so a learned skill gets a one-time symlink there (see
-  `skills/learning-curator/SKILL.md`, "Making a learned skill
-  discoverable"). Staging/audit trail:
-  `~/.agent-bridges/learning/skills-pending/` and `skills-log.md`, both
-  outside every project's git tree.
-
-MEMORY is a fact about *this* codebase, so it's versioned with it and
-team-reviewable. A skill is a reusable procedure — never something an
-auto-apply should inject into a shared codebase without a PR review.
-Splitting the store (not just gating the write) is what keeps that
-boundary durable.
+Installing the plugin covers Claude Code. Antigravity/Codex CLIs, model
+pins, and copying `CLAUDE.md`/`AGENTS.md` into your project are separate,
+still-manual steps — see **[docs/SETUP.md](docs/SETUP.md)** for the full
+walkthrough and **"Verifying it works"** in that doc once you're done.
 
 ## Which mode do I need?
 
@@ -154,199 +76,6 @@ boundary durable.
   independence (one vendor's model family for both lenses); the overlay
   explains what that costs and why your own Review step has to work
   harder.
-
-## Setup
-
-`templates/CLAUDE.md`'s "Model pins" table is the source of truth for
-every model value.
-
-### 0. Install the plugin
-
-No clone needed — Claude Code pulls this repo itself:
-
-```
-/plugin marketplace add sanoval/agent-bridges
-/plugin install agent-bridges@agent-bridges
-```
-
-This registers all three MCP servers (`antigravity`, `codex-qa`,
-`codex-security` — from the bundled `.mcp.json`), the `delegation-pipeline`
-and `learning-curator` skills, and the Gate `PreToolUse` hook, and keeps
-them current: Claude Code checks the marketplace roughly every 24h and
-pulls a new version whenever `.claude-plugin/plugin.json`'s `version`
-bumps (`/plugin marketplace update agent-bridges` to check right now,
-`/plugin install agent-bridges@agent-bridges --update` to force one).
-
-Not on a Codex subscription? `codex-qa`/`codex-security` will simply fail
-to connect (`claude mcp list` shows them **Failed**) — harmless in
-two-bridge mode, see "Which mode do I need?" below.
-
-**Scope this to the projects that actually run the pipeline.** The Gate
-hook fires on every `Edit`/`Write`/`NotebookEdit` in any project where the
-plugin is enabled — enable it per-project (project `.claude/settings.json`
-`enabledPlugins`) rather than at user scope, or you'll get Gate prompts in
-unrelated repos. See [Configure team marketplaces](https://code.claude.com/docs/en/discover-plugins#configure-team-marketplaces).
-
-### 0b. Make the plugin skills visible to Antigravity (optional)
-
-Installing the plugin makes `delegation-pipeline`/`learning-curator`
-available to **Claude Code only** — Claude Code's plugin cache
-(`~/.claude/plugins/cache/…`) isn't a path Antigravity or Codex know to
-read. Antigravity has its own global discovery path, `~/.agents/skills/`
-(the user-level counterpart of the project-level `.agents/skills` — see
-"Centralizing memory across harnesses"), so symlinking the plugin's cached
-skill folders into it makes both harnesses trigger the same two skills:
-
-```bash
-AGENT_BRIDGES_SRC="$(ls -td ~/.claude/plugins/cache/agent-bridges/agent-bridges/*/ 2>/dev/null | head -1)"
-if [ -z "$AGENT_BRIDGES_SRC" ]; then
-  echo "agent-bridges plugin not found in cache — install it first (Setup step 0)" >&2
-else
-  mkdir -p ~/.agents/skills
-  ln -sfn "${AGENT_BRIDGES_SRC}skills/delegation-pipeline" ~/.agents/skills/delegation-pipeline
-  ln -sfn "${AGENT_BRIDGES_SRC}skills/learning-curator" ~/.agents/skills/learning-curator
-  echo "Linked $(readlink ~/.agents/skills/delegation-pipeline)"
-fi
-```
-
-The cache path is **versioned** (`.../agent-bridges/agent-bridges/<version>/…`)
-and the old version directory is swept away ~14 days after an update, so
-this symlink goes stale on every plugin update — re-run this snippet after
-`/plugin install agent-bridges@agent-bridges --update` (the `ln -sfn`
-commands are safe to re-run any time; they just repoint the link).
-
-**Codex gets nothing from this and there's no command that changes that.**
-Codex has no per-task skill loader at all — no directory it discovers
-skills from, plugin or otherwise (see `skills/delegation-pipeline/SKILL.md`,
-"Shared skills"). Both skills are orchestrator-facing by design and were
-never pasted into a Codex prompt even before the plugin conversion, so
-nothing here is a regression for Codex specifically — but don't expect a
-symlink to fix it, because there's no discovery mechanism on the other end
-to point at.
-
-### Remaining steps (still manual — see "Repo layout" for why)
-
-1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
-   **Three-bridge mode only:** `codex` CLI installed and authenticated.
-2. **Three-bridge mode only** — pin QA/Security to models via Codex
-   profiles in `~/.codex/config.toml`:
-   ```toml
-   [profiles.qa]
-   model = "5.6 Terra"
-
-   [profiles.security]
-   model = "5.6 Sol"
-   ```
-3. Verify: `claude mcp list` shows `antigravity` **Connected**
-   (two-bridge), or all three of `antigravity`, `codex-qa`,
-   `codex-security` **Connected** (three-bridge).
-4. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
-   merge it in) — keep the `@AGENTS.md` import line at the top.
-   **Two-bridge mode:** also append `CLAUDE-two-bridge-overlay.md`.
-5. Copy `templates/AGENTS.md` into the project's root `AGENTS.md` (or
-   merge it in).
-6. **(Optional, project-owned skills only)** If this project has its own
-   custom skills beyond `delegation-pipeline`/`learning-curator` (which the
-   plugin already provides), create/move them into `skills/<name>/SKILL.md`
-   at the project root, then symlink:
-   `ln -s skills .claude/skills && ln -s skills .agents/skills`. Keep the
-   "Available skills" list in `AGENTS.md` in sync.
-7. **(Team sharing)** Commit `templates/AGENTS.md`/`CLAUDE.md` (merged into
-   your project's own copies) so the whole team gets the pipeline just by
-   installing the plugin — no per-teammate MCP/hook setup needed.
-8. **Enable the learning curator (optional, recommended) — machine-side
-   only**, once per machine: create `~/.agents/skills/` and
-   `~/.agent-bridges/learning/` (with `skills-pending/` and an empty
-   `skills-log.md`) — nothing here is project-specific or ever committed.
-   Symlink `~/.agents/skills/<name>` into `~/.claude/skills/<name>` per
-   skill so Claude Code discovers it too. (Project-side: create an empty,
-   committed `.agent-bridges/learning/log.md`, and gitignore
-   `.agent-bridges/learning/pending/` only.)
-
-### Operational notes
-
-- **Cold start:** Antigravity's first call takes ~40–50s; later calls in
-  the same session are faster.
-- **Timeouts:** override Antigravity's per-tool budgets via
-  `AGY_TIMEOUT_<TOOL_NAME>` (or `AGY_TIMEOUT` globally). Keep the MCP
-  client timeout ≥ that budget.
-- **Output cap:** Antigravity truncates at `AGY_MAX_OUTPUT_CHARS` (default
-  50,000) — ask for dense, structured output (e.g. a pass/fail table).
-- **(Three-bridge)** `codex-qa` and `codex-security` are independent
-  processes — a `threadId` from one is meaningless on the other.
-- **(Two-bridge)** QA and Security lenses run sequentially, not in
-  parallel — both are `adversarial_review` calls on the same server.
-- **Macro-delegation:** send the full plan and every touched file to
-  Antigravity in one call, and the full diff plus acceptance criteria to
-  QA/Security in one call each, rather than fragmenting into single-file
-  delegations.
-
-## Using the templates
-
-See "Repo layout" above for what each file contains. A few notes beyond
-that:
-
-- Roles are pinned, not task-fit routed. QA and Security run in parallel
-  once Claude Code's own review pass is done; raw output is never piped
-  bridge-to-bridge. Independent units are delegated in parallel.
-- Only `antigravity`, `codex-qa`, and `codex-security` calls run on a
-  separate vendor's quota. Claude's own subagents (`Agent`/`Task`) still
-  burn Claude's own limit, so they're reserved for work needing a tool,
-  permission, or session state only Claude Code has — not coding, QA, or
-  security, which the three bridges own outright.
-- The progress-file template (`review-topic-template.md`) uses Indonesian
-  section headers, and `CLAUDE.md`'s rules refer to them by exact name —
-  the section names are load-bearing. If you translate one file, translate
-  both.
-
-## Verifying it works
-
-After restarting Claude Code, run `claude mcp list`.
-
-- **Three-bridge mode:** all three bridges connected. An Antigravity call
-  returns a `session_id`; `codex-qa`/`codex-security` each return their
-  own `threadId` — confirm they differ even for the same diff.
-- **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one
-  `adversarial_review` call framed as QA and one framed as Security —
-  confirm they return different `session_id` values.
-- **Gate hook (plugin step 0):** ask Claude Code to `Edit`/`Write` an
-  application-code file directly. A permission prompt quoting the Gate
-  rule should appear first. If not, confirm the plugin is enabled for this
-  project (`/plugin`) or open `/hooks` once and restart.
-- **Learning-curator storage (step 8):** after a MEMORY proposal, `git
-  status` should **not** show `.agent-bridges/learning/pending/` as
-  untracked, but should show a normal diff for a promoted/auto-applied
-  change to `AGENTS.md`/`log.md`. After a CREATE_SKILL, confirm the skill
-  exists at `~/.agents/skills/<name>/SKILL.md`, that
-  `~/.claude/skills/<name>` symlinks to it, and that `git status` inside
-  the project shows nothing related to it.
-
-## Status
-
-Two topologies:
-
-```text
-Three-bridge mode:
-Claude Code (Planner & Reviewer)
-  -> Antigravity (antigravity MCP server, runs agy-bridge, Antigravity pin)
-       — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
-  -> Codex QA (codex-qa MCP server, profile "qa", QA pin) — QA Engineer
-  -> Codex Security (codex-security MCP server, profile "security", Security pin) — Security Engineer
-
-Two-bridge mode:
-Claude Code (Planner & Reviewer — also primary defense, see CLAUDE-two-bridge-overlay.md)
-  -> Antigravity (antigravity MCP server, runs agy-bridge)
-       — Document Analyzer / Coder-Executor / Release-Changelog Writer (Antigravity pin)
-       — QA lens / Security lens (adversarial_review chain: Gemini 3.1 Pro high -> Claude Opus 4.6 -> Flash)
-```
-
-This is a PoC: a fixed-role pipeline (plan → implement → review → QA +
-security in parallel) rather than task-fit routing, and it holds until
-quota pressure becomes the binding constraint. If the bottleneck turns out
-to be provider-level quota exhaustion rather than pipeline shape, a proxy
-like [9Router](https://9router.com/) (account/tier fallback across
-providers) is the next thing to evaluate — it solves quota/cost failover,
-not role-to-provider fit, and would sit below this routing layer.
 
 ## Acknowledgements
 

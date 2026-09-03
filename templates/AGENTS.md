@@ -27,7 +27,7 @@ Coder/QA/Security don't need to know how Claude Code decided to call them.
 `delegation-pipeline` and `learning-curator` — the pipeline steps, payload
 contracts, checkpoint format, and post-verification learning policy this
 project's delegation pipeline runs on — ship inside the `agent-bridges`
-Claude Code plugin (see `README.md` "Setup"), not as files in this
+Claude Code plugin (see `README.md` "Install"), not as files in this
 project. Claude Code discovers them globally once the plugin is enabled;
 Antigravity and Codex have no visibility into them at all (neither harness
 reads Claude Code's plugin store), so neither is ever pasted into a
