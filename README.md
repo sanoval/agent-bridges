@@ -64,6 +64,13 @@ pins, and copying `CLAUDE.md`/`AGENTS.md` into your project are separate,
 still-manual steps — see **[docs/SETUP.md](docs/SETUP.md)** for the full
 walkthrough and **"Verifying it works"** in that doc once you're done.
 
+## Usage
+
+Once setup is verified, see **[docs/USAGE.md](docs/USAGE.md)** for what a
+day-to-day session looks like: how to start a unit of work, what the Gate
+hook will ask you to approve, what happens automatically (checkpointing,
+learning), and a narrated end-to-end example.
+
 ## Which mode do I need?
 
 - **Have a Codex subscription too?** Use `templates/CLAUDE.md` as-is
