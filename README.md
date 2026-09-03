@@ -187,6 +187,43 @@ plugin is enabled — enable it per-project (project `.claude/settings.json`
 `enabledPlugins`) rather than at user scope, or you'll get Gate prompts in
 unrelated repos. See [Configure team marketplaces](https://code.claude.com/docs/en/discover-plugins#configure-team-marketplaces).
 
+### 0b. Make the plugin skills visible to Antigravity (optional)
+
+Installing the plugin makes `delegation-pipeline`/`learning-curator`
+available to **Claude Code only** — Claude Code's plugin cache
+(`~/.claude/plugins/cache/…`) isn't a path Antigravity or Codex know to
+read. Antigravity has its own global discovery path, `~/.agents/skills/`
+(the user-level counterpart of the project-level `.agents/skills` — see
+"Centralizing memory across harnesses"), so symlinking the plugin's cached
+skill folders into it makes both harnesses trigger the same two skills:
+
+```bash
+AGENT_BRIDGES_SRC="$(ls -td ~/.claude/plugins/cache/agent-bridges/agent-bridges/*/ 2>/dev/null | head -1)"
+if [ -z "$AGENT_BRIDGES_SRC" ]; then
+  echo "agent-bridges plugin not found in cache — install it first (Setup step 0)" >&2
+else
+  mkdir -p ~/.agents/skills
+  ln -sfn "${AGENT_BRIDGES_SRC}skills/delegation-pipeline" ~/.agents/skills/delegation-pipeline
+  ln -sfn "${AGENT_BRIDGES_SRC}skills/learning-curator" ~/.agents/skills/learning-curator
+  echo "Linked $(readlink ~/.agents/skills/delegation-pipeline)"
+fi
+```
+
+The cache path is **versioned** (`.../agent-bridges/agent-bridges/<version>/…`)
+and the old version directory is swept away ~14 days after an update, so
+this symlink goes stale on every plugin update — re-run this snippet after
+`/plugin install agent-bridges@agent-bridges --update` (the `ln -sfn`
+commands are safe to re-run any time; they just repoint the link).
+
+**Codex gets nothing from this and there's no command that changes that.**
+Codex has no per-task skill loader at all — no directory it discovers
+skills from, plugin or otherwise (see `skills/delegation-pipeline/SKILL.md`,
+"Shared skills"). Both skills are orchestrator-facing by design and were
+never pasted into a Codex prompt even before the plugin conversion, so
+nothing here is a regression for Codex specifically — but don't expect a
+symlink to fix it, because there's no discovery mechanism on the other end
+to point at.
+
 ### Remaining steps (still manual — see "Repo layout" for why)
 
 1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
