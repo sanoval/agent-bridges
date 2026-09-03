@@ -162,10 +162,15 @@ every model value.
 
 ### 0. Install the plugin
 
-No clone needed — Claude Code pulls this repo itself:
+No clone needed — Claude Code pulls this repo itself. Run these as two
+separate commands, not as one pasted block — pasting both lines at once
+can merge them into a single command and break the owner/repo argument:
 
 ```
 /plugin marketplace add sanoval/agent-bridges
+```
+
+```
 /plugin install agent-bridges@agent-bridges
 ```
 
