@@ -40,8 +40,8 @@ adversarial_review, session terpisah, jangan follow_up satu ke lainnya);
 hasil singkat — tandai setiap klaim VERIFIED (sitasi file:line sudah
 di-spot-check) atau UNVERIFIED>
 
-Referensi: templates/skills/delegation-pipeline/SKILL.md (semua mode) dan
-templates/skills/delegation-pipeline/two-bridge.md (two-bridge mode).
+Referensi: skill `delegation-pipeline` dari plugin `agent-bridges` (semua
+mode; lihat juga `two-bridge.md` di dalamnya untuk two-bridge mode).
 
 ### Gap list
 | # | Gap | Severity | Catatan |

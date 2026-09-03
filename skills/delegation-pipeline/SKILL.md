@@ -55,7 +55,7 @@ file assumes you've already read that.
    output. Also a new session, not a continuation of the Coder session.
 7. **Learn** (you — non-blocking, no bridge call). Once step 5 (Reconcile)
    confirms final verification passed, load the `learning-curator` skill
-   (`skills/learning-curator/SKILL.md`) and let it classify the unit as
+   (bundled in this plugin, alongside this one) and let it classify the unit as
    NOOP, MEMORY, PATCH_SKILL, or CREATE_SKILL from a compact trace of what
    you already verified. Order relative to step 6 doesn't matter — this
    never gates release. A curator failure never changes the unit's outcome;
@@ -112,17 +112,24 @@ namespace — do not mix them up:
 
 ## Shared skills
 
-This project's custom skills live in `skills/<name>/SKILL.md`, symlinked
-into both `.claude/skills` and `.agents/skills` (see `templates/AGENTS.md`).
-You (Claude Code) and Antigravity trigger these natively — same file
+`delegation-pipeline` and `learning-curator` ship inside the `agent-bridges`
+plugin — Claude Code discovers them globally once the plugin is enabled,
+they are never copied into a project's own `skills/` directory, and
+Antigravity/Codex have no visibility into them at all (neither harness
+reads Claude Code's plugin store). Both are orchestrator-facing and are
+never pasted into a Codex call.
+
+A project may still keep its *own* hand-authored skills at
+`skills/<name>/SKILL.md`, symlinked into both `.claude/skills` and
+`.agents/skills` (see `templates/AGENTS.md`) — that convention is unchanged
+and is how you keep a project-specific skill visible to Antigravity too.
+You (Claude Code) and Antigravity trigger those natively — same file
 format, same description-matching mechanism. Codex cannot: it has no
 per-task skill loader, so before a `codex-qa`/`codex-security` call, check
-whether a skill in `skills/` matches what you're asking it to do and, if
-so, paste that skill's markdown body into the prompt yourself. Note in the
-checkpoint which skill (if any) was pasted into a Codex call, since Codex
-won't have discovered it on its own. This `delegation-pipeline` skill is
-the one exception — it's orchestrator-facing and is never pasted into a
-Codex call.
+whether a skill in the project's `skills/` matches what you're asking it to
+do and, if so, paste that skill's markdown body into the prompt yourself.
+Note in the checkpoint which skill (if any) was pasted into a Codex call,
+since Codex won't have discovered it on its own.
 
 ## Optional second opinion on your plan
 

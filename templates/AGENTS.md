@@ -24,10 +24,21 @@ Coder/QA/Security don't need to know how Claude Code decided to call them.
 
 ## Skills
 
-This project's custom skills live in one canonical `skills/<name>/SKILL.md`
-directory at the project root (same file format Claude Code and Antigravity
-both use — YAML frontmatter `description`/`name`, markdown body, optional
-`scripts/`/`resources/`). Two directories are symlinks to it, not copies:
+`delegation-pipeline` and `learning-curator` — the pipeline steps, payload
+contracts, checkpoint format, and post-verification learning policy this
+project's delegation pipeline runs on — ship inside the `agent-bridges`
+Claude Code plugin (see `README.md` "Setup"), not as files in this
+project. Claude Code discovers them globally once the plugin is enabled;
+Antigravity and Codex have no visibility into them at all (neither harness
+reads Claude Code's plugin store), so neither is ever pasted into a
+`codex-qa`/`codex-security` prompt and neither needs listing here for
+Codex's benefit.
+
+Any *additional* skill specific to this project still lives in one
+canonical `skills/<name>/SKILL.md` directory at the project root (same
+file format Claude Code and Antigravity both use — YAML frontmatter
+`description`/`name`, markdown body, optional `scripts/`/`resources/`).
+Two directories are symlinks to it, not copies:
 
 - `.claude/skills` → `../skills` (Claude Code's discovery path)
 - `.agents/skills` → `../skills` (Antigravity's workspace discovery path)
@@ -38,20 +49,8 @@ body into a `codex-qa`/`codex-security` prompt. The list below exists so
 Codex (reading this file natively) at least knows what's available, even
 though it can't trigger one itself:
 
-- `delegation-pipeline` — pipeline steps, payload contracts, session
-  continuity, example prompts, and checkpoint format for the delegation
-  pipeline defined in `CLAUDE.md`. Orchestrator-facing only (Claude Code and
-  Antigravity trigger it natively) — this is the one skill never pasted into
-  a Codex prompt, since Codex plays a fixed QA/Security role in the pipeline
-  this skill describes, not the orchestrator role.
-- `learning-curator` — post-verification, non-blocking: classifies a
-  finished unit as NOOP / project-memory / a skill patch / a new skill,
-  scores its evidence, and either stages a local pending proposal or
-  auto-applies a narrowly-scoped mutation. Orchestrator-facing only, run as
-  step 7 of the delegation pipeline. **Never writes a new or patched skill
-  into this project** — see "Learning" below for where that actually goes.
-<one line per additional project skill: `name` — one-sentence description,
-kept in sync with each skill's own frontmatter>
+<one line per project skill: `name` — one-sentence description, kept in
+sync with each skill's own frontmatter>
 
 ## Learning
 

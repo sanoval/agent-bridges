@@ -67,13 +67,13 @@ git operations). If you catch yourself editing source files for a unit
 without having made a Coder call first, that is the failure this gate
 exists to catch — stop and delegate instead of finishing the edit.
 
-If `templates/hooks/agent-bridges-gate.sh` is installed (see README Setup
-step 8), this gate is not just this text — a `PreToolUse` hook turns any
-`Edit`/`Write`/`NotebookEdit` on application code into a permission prompt
-quoting this rule, so a bypass is something the user sees and approves
-rather than something that happens silently. The hook does not cover the
-Bash half of this gate (file-modifying shell commands) — that stays your
-own responsibility to catch.
+If the `agent-bridges` plugin is enabled for this project, this gate is not
+just this text — its bundled `PreToolUse` hook (`hooks/agent-bridges-gate.sh`)
+turns any `Edit`/`Write`/`NotebookEdit` on application code into a
+permission prompt quoting this rule, so a bypass is something the user sees
+and approves rather than something that happens silently. The hook does not
+cover the Bash half of this gate (file-modifying shell commands) — that
+stays your own responsibility to catch.
 
 ## Claude subagents are not bridge delegation
 
@@ -119,8 +119,8 @@ point of this setup.
 
 ## Load the pipeline skill before starting a unit
 
-Before step 0 of any unit, load the `delegation-pipeline` skill
-(`skills/delegation-pipeline/SKILL.md`). It carries the numbered pipeline
+Before step 0 of any unit, load the `delegation-pipeline` skill (bundled in
+the `agent-bridges` plugin — see README "Setup"). It carries the numbered pipeline
 steps, Macro-Delegation payload contracts, session-continuity rules, example
 delegation prompts, the verification bar, and the full checkpoint/archive/
 self-audit format. Do not run a unit from memory of this file alone — the
@@ -129,7 +129,7 @@ never be missed even if the skill fails to load; the mechanics of actually
 running a unit are the skill's job.
 
 After a unit passes final verification, the pipeline's step 7 loads
-`learning-curator` (`skills/learning-curator/SKILL.md`) — non-blocking,
+`learning-curator` (also bundled in the `agent-bridges` plugin) — non-blocking,
 never gates release, a curator failure never changes a successful unit's
 outcome. Project-specific facts may be written to `AGENTS.md` directly
 (already exempt from the Gate above); reusable procedures never touch this

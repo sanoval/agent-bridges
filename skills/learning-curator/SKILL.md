@@ -248,8 +248,9 @@ project so a multi-project log stays legible):
 ### Why the curator edits directly (not via a Coder-role call)
 
 `AGENTS.md` edits are already exempted from the Gate's Coder-delegation
-rule — it's in the Gate hook's allowlist (`templates/hooks/agent-bridges-gate.sh`)
-alongside progress files, delegation config, and `skills/`, because it's
+rule — it's in the Gate hook's allowlist (`hooks/agent-bridges-gate.sh`,
+bundled in this plugin) alongside progress files, delegation config, and
+`skills/`, because it's
 project/pipeline configuration, not application code the Coder role owns.
 MEMORY mutations land there directly, so no new exception is needed.
 Skill mutations don't touch the project working tree at all — they target

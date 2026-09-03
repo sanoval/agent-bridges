@@ -46,22 +46,38 @@ Claude Code carrying that context itself.
 
 ## Repo layout
 
+This repo is both a **Claude Code plugin** (installable via `/plugin`, see
+"Setup" below) and a **marketplace** for itself — `.claude-plugin/` holds
+the manifests, everything else at the plugin root ships automatically once
+the plugin is enabled:
+
 ```
+.claude-plugin/
+  marketplace.json               — self-hosted marketplace listing this repo's one plugin
+  plugin.json                    — plugin manifest (name, version — bump this to ship an update)
+skills/delegation-pipeline/
+  SKILL.md                       — pipeline steps, payload contracts, session continuity, example prompts
+  two-bridge.md                  — two-bridge deltas: step 4 replacement, adversarial_review lens calls
+skills/learning-curator/
+  SKILL.md                       — post-verification learning: classification, evidence scoring, hard gates
+  proposal-template.md           — format for a pending learning proposal
+hooks/
+  hooks.json                     — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
+  agent-bridges-gate.sh          — the Gate-enforcement script referenced by hooks.json
+.mcp.json                        — antigravity/codex-qa/codex-security server definitions, auto-registered on enable
 templates/
-  AGENTS.md                     — shared project memory, read by all three harnesses
-  CLAUDE.md                     — always-on core: role/pin table, the Gate, "Do NOT delegate", checkpoint discipline
-  CLAUDE-two-bridge-overlay.md  — appended when no Codex subscription is available (two-bridge mode)
-  review-topic-template.md      — structure for a persistent review-<topic>.md progress file
-  settings.hooks.json           — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
-  hooks/
-    agent-bridges-gate.sh       — the Gate-enforcement script referenced by settings.hooks.json
-  skills/delegation-pipeline/
-    SKILL.md                    — pipeline steps, payload contracts, session continuity, example prompts
-    two-bridge.md                — two-bridge deltas: step 4 replacement, adversarial_review lens calls
-  skills/learning-curator/
-    SKILL.md                    — post-verification learning: classification, evidence scoring, hard gates
-    proposal-template.md        — format for a pending learning proposal
+  AGENTS.md                      — shared project memory, read by all three harnesses (you merge this into your project)
+  CLAUDE.md                      — always-on core: role/pin table, the Gate, "Do NOT delegate", checkpoint discipline (you merge this into your project)
+  CLAUDE-two-bridge-overlay.md   — appended when no Codex subscription is available (two-bridge mode)
+  review-topic-template.md       — structure for a persistent review-<topic>.md progress file
 ```
+
+`skills/`, `hooks/`, and `.mcp.json` are **plugin-owned** — installing the
+plugin is all that's needed for those, no copying, and `/plugin update`
+picks up new versions. `templates/` is **not** plugin-distributed content:
+`CLAUDE.md`/`AGENTS.md` become part of *your* project's own memory files,
+and a plugin has no mechanism to inject into a file it doesn't own — that
+half still needs the manual copy/merge in "Setup" below.
 
 ## Centralizing memory across harnesses
 
@@ -78,9 +94,9 @@ Edit `AGENTS.md` once, all three harnesses see it. Put project facts
 (build/test commands, code style, layout) in `AGENTS.md`; keep
 delegation/routing rules in `CLAUDE.md` below the import line.
 
-**Skills** work the same way between Claude Code and Antigravity, since
-their skill formats match almost exactly (YAML frontmatter + markdown
-body). They just look in different places:
+**Skills** work the same way between Claude Code and Antigravity for any
+skill your *project* owns, since their skill formats match almost exactly
+(YAML frontmatter + markdown body). They just look in different places:
 
 - Claude Code: `.claude/skills/<name>/SKILL.md`
 - Antigravity: `.agents/skills/<name>/SKILL.md`
@@ -94,8 +110,12 @@ ln -s skills .agents/skills
 Codex has no skill loader, so it can't discover `skills/` — the
 "Available skills" list in `AGENTS.md` at least tells it what exists.
 
-Two skills ship with this repo, orchestrator-facing only (never pasted
-into a Codex call): `delegation-pipeline` and `learning-curator`.
+The two orchestrator skills this repo ships — `delegation-pipeline` and
+`learning-curator` — are the one exception to that pattern: they come from
+the `agent-bridges` **plugin**, not from a project-local `skills/`
+directory, so Claude Code discovers them globally once the plugin is
+enabled and neither Antigravity nor Codex ever sees them (by design —
+both are orchestrator-facing, never pasted into a Codex call).
 
 ## Learning-curator storage: memory vs. skills
 
@@ -138,8 +158,36 @@ boundary durable.
 ## Setup
 
 `templates/CLAUDE.md`'s "Model pins" table is the source of truth for
-every model value. Keep the commands below in sync with it if a pin
-changes.
+every model value.
+
+### 0. Install the plugin
+
+No clone needed — Claude Code pulls this repo itself:
+
+```
+/plugin marketplace add sanoval/agent-bridges
+/plugin install agent-bridges@agent-bridges
+```
+
+This registers all three MCP servers (`antigravity`, `codex-qa`,
+`codex-security` — from the bundled `.mcp.json`), the `delegation-pipeline`
+and `learning-curator` skills, and the Gate `PreToolUse` hook, and keeps
+them current: Claude Code checks the marketplace roughly every 24h and
+pulls a new version whenever `.claude-plugin/plugin.json`'s `version`
+bumps (`/plugin marketplace update agent-bridges` to check right now,
+`/plugin install agent-bridges@agent-bridges --update` to force one).
+
+Not on a Codex subscription? `codex-qa`/`codex-security` will simply fail
+to connect (`claude mcp list` shows them **Failed**) — harmless in
+two-bridge mode, see "Which mode do I need?" below.
+
+**Scope this to the projects that actually run the pipeline.** The Gate
+hook fires on every `Edit`/`Write`/`NotebookEdit` in any project where the
+plugin is enabled — enable it per-project (project `.claude/settings.json`
+`enabledPlugins`) rather than at user scope, or you'll get Gate prompts in
+unrelated repos. See [Configure team marketplaces](https://code.claude.com/docs/en/discover-plugins#configure-team-marketplaces).
+
+### Remaining steps (still manual — see "Repo layout" for why)
 
 1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
    **Three-bridge mode only:** `codex` CLI installed and authenticated.
@@ -152,58 +200,31 @@ changes.
    [profiles.security]
    model = "5.6 Sol"
    ```
-3. Register the MCP server(s) at user scope:
-   - **Two-bridge mode** (Antigravity only):
-     ```bash
-     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"gemini-3.7-flash-medium"},"timeout":600000}'
-     ```
-   - **Three-bridge mode** (Antigravity + both Codex instances):
-     ```bash
-     claude mcp add-json -s user antigravity '{"command":"npx","args":["-y","agy-bridge"],"env":{"AGY_DEFAULT_MODEL":"gemini-3.7-flash-medium"},"timeout":600000}'
-     claude mcp add-json -s user codex-qa '{"command":"codex","args":["--profile","qa","mcp-server"],"timeout":600000}'
-     claude mcp add-json -s user codex-security '{"command":"codex","args":["--profile","security","mcp-server"],"timeout":600000}'
-     ```
-   `AGY_DEFAULT_MODEL` is only a fallback — `templates/CLAUDE.md` passes
-   `model:` explicitly on every Coder/Analyzer/Release-Writer call, since
-   that's the only guarantee the bridge honors it.
-4. Verify: `claude mcp list` shows `antigravity` **Connected**
+3. Verify: `claude mcp list` shows `antigravity` **Connected**
    (two-bridge), or all three of `antigravity`, `codex-qa`,
    `codex-security` **Connected** (three-bridge).
-5. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
+4. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
    merge it in) — keep the `@AGENTS.md` import line at the top.
    **Two-bridge mode:** also append `CLAUDE-two-bridge-overlay.md`.
-6. Copy `templates/AGENTS.md` into the project's root `AGENTS.md` (or
+5. Copy `templates/AGENTS.md` into the project's root `AGENTS.md` (or
    merge it in).
-7. Create/move skills into `skills/<name>/SKILL.md` at the project root,
-   then symlink: `ln -s skills .claude/skills && ln -s skills .agents/skills`.
-   Copy `templates/skills/delegation-pipeline/` in — keep `two-bridge.md`
-   only in two-bridge mode. Keep the "Available skills" list in
-   `AGENTS.md` in sync.
-8. **Enforce the Gate mechanically (recommended).** The Gate is prose —
-   nothing stops Claude Code from editing a file directly. Copy
-   `templates/hooks/agent-bridges-gate.sh` to
-   `.claude/hooks/agent-bridges-gate.sh` (`chmod +x`), then merge the
-   `hooks` block from `templates/settings.hooks.json` into
-   `.claude/settings.json`. This adds a `PreToolUse` hook on
-   `Edit`/`Write`/`NotebookEdit`: progress files, project memory,
-   delegation config, `skills/`, and `.agent-bridges/` pass through;
-   everything else (application code) surfaces a permission prompt. Bash
-   commands that mutate tracked files aren't covered — that half stays
-   honor-system.
-9. **(Team sharing)** Commit a `.mcp.json` with the same server entries
-   instead of user-scope registration, plus `AGENTS.md`, `skills/`, and
-   the symlinks — all meant to be checked in.
-10. **Enable the learning curator (optional, recommended):**
-    - **Project-side:** copy `templates/skills/learning-curator/` into
-      the project's `skills/`. Create an empty, committed
-      `.agent-bridges/learning/log.md`, and gitignore
-      `.agent-bridges/learning/pending/` only. Keep "Available skills" in
-      `AGENTS.md` in sync.
-    - **Machine-side (once per machine):** create `~/.agents/skills/` and
-      `~/.agent-bridges/learning/` (with `skills-pending/` and an empty
-      `skills-log.md`) — nothing here is project-specific or ever
-      committed. Symlink `~/.agents/skills/<name>` into
-      `~/.claude/skills/<name>` per skill so Claude Code discovers it too.
+6. **(Optional, project-owned skills only)** If this project has its own
+   custom skills beyond `delegation-pipeline`/`learning-curator` (which the
+   plugin already provides), create/move them into `skills/<name>/SKILL.md`
+   at the project root, then symlink:
+   `ln -s skills .claude/skills && ln -s skills .agents/skills`. Keep the
+   "Available skills" list in `AGENTS.md` in sync.
+7. **(Team sharing)** Commit `templates/AGENTS.md`/`CLAUDE.md` (merged into
+   your project's own copies) so the whole team gets the pipeline just by
+   installing the plugin — no per-teammate MCP/hook setup needed.
+8. **Enable the learning curator (optional, recommended) — machine-side
+   only**, once per machine: create `~/.agents/skills/` and
+   `~/.agent-bridges/learning/` (with `skills-pending/` and an empty
+   `skills-log.md`) — nothing here is project-specific or ever committed.
+   Symlink `~/.agents/skills/<name>` into `~/.claude/skills/<name>` per
+   skill so Claude Code discovers it too. (Project-side: create an empty,
+   committed `.agent-bridges/learning/log.md`, and gitignore
+   `.agent-bridges/learning/pending/` only.)
 
 ### Operational notes
 
@@ -251,10 +272,11 @@ After restarting Claude Code, run `claude mcp list`.
 - **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one
   `adversarial_review` call framed as QA and one framed as Security —
   confirm they return different `session_id` values.
-- **Gate hook (step 8):** ask Claude Code to `Edit`/`Write` an
+- **Gate hook (plugin step 0):** ask Claude Code to `Edit`/`Write` an
   application-code file directly. A permission prompt quoting the Gate
-  rule should appear first. If not, open `/hooks` once or restart.
-- **Learning-curator storage (step 10):** after a MEMORY proposal, `git
+  rule should appear first. If not, confirm the plugin is enabled for this
+  project (`/plugin`) or open `/hooks` once and restart.
+- **Learning-curator storage (step 8):** after a MEMORY proposal, `git
   status` should **not** show `.agent-bridges/learning/pending/` as
   untracked, but should show a normal diff for a promoted/auto-applied
   change to `AGENTS.md`/`log.md`. After a CREATE_SKILL, confirm the skill
