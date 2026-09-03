@@ -48,6 +48,6 @@ parallelism/failure/verification deltas live in
 
 If a Codex subscription becomes available later: delete this overlay from
 the bottom of `CLAUDE.md`, delete `skills/delegation-pipeline/two-bridge.md`,
-and register `codex-qa`/`codex-security` per `README.md`'s Setup section.
+and register `codex-qa`/`codex-security` per `docs/SETUP.md`.
 Nothing about steps 0–3 or 6 changes — only step 4 moves from two
 `adversarial_review` lens calls to two independent MCP servers.

@@ -72,7 +72,7 @@ Codex: 128k+ tokens). Package a whole plan plus every file it touches into a
 single high-payload call rather than fragmenting into single-file requests.
 
 Every call to Antigravity must specify `model:` set to the Antigravity pin
-explicitly (do not rely on a default — see `README.md` Setup for why), plus,
+explicitly (do not rely on a default — see `docs/SETUP.md` for why), plus,
 depending on which role it's playing:
 
 - **Document Analyzer:** every doc/spec/PRD relevant to the unit in one

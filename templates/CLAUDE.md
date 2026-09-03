@@ -18,7 +18,7 @@ Single source of truth for every model value used by this pipeline. Change
 a pin here and nowhere else — every other mention in this project (the
 skill, the overlay, `README.md`) refers to a pin by name rather than
 restating its value. The only other place a literal may appear is
-`README.md`'s Setup commands, which must match this table.
+`docs/SETUP.md`'s setup commands, which must match this table.
 
 | Pin | Value | Applies to |
 |---|---|---|
@@ -120,7 +120,7 @@ point of this setup.
 ## Load the pipeline skill before starting a unit
 
 Before step 0 of any unit, load the `delegation-pipeline` skill (bundled in
-the `agent-bridges` plugin — see README "Setup"). It carries the numbered pipeline
+the `agent-bridges` plugin — see README "Install"). It carries the numbered pipeline
 steps, Macro-Delegation payload contracts, session-continuity rules, example
 delegation prompts, the verification bar, and the full checkpoint/archive/
 self-audit format. Do not run a unit from memory of this file alone — the
