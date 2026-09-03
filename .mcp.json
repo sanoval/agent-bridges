@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "antigravity": {
+      "command": "npx",
+      "args": ["-y", "agy-bridge"],
+      "env": {
+        "AGY_DEFAULT_MODEL": "gemini-3.7-flash-medium"
+      },
+      "timeout": 600000
+    },
+    "codex-qa": {
+      "command": "codex",
+      "args": ["--profile", "qa", "mcp-server"],
+      "timeout": 600000
+    },
+    "codex-security": {
+      "command": "codex",
+      "args": ["--profile", "security", "mcp-server"],
+      "timeout": 600000
+    }
+  }
+}

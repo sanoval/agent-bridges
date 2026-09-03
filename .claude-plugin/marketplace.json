@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "agent-bridges",
+  "description": "Fixed-role delegation pipeline pairing Claude Code with Antigravity and Codex QA/Security MCP bridges.",
+  "owner": {
+    "name": "Sanoval Awwalin",
+    "url": "https://github.com/sanoval"
+  },
+  "plugins": [
+    {
+      "name": "agent-bridges",
+      "version": "0.1.0",
+      "source": "./",
+      "description": "Delegation-pipeline and learning-curator skills, MCP bridge registration (antigravity, codex-qa, codex-security), and the Gate-enforcement hook for the agent-bridges pipeline.",
+      "homepage": "https://github.com/sanoval/agent-bridges",
+      "license": "MIT",
+      "keywords": ["delegation", "mcp", "antigravity", "codex", "pipeline", "qa", "security"],
+      "author": {
+        "name": "Sanoval Awwalin",
+        "email": "sanoval.awwalin@gmail.com"
+      }
+    }
+  ]
+}

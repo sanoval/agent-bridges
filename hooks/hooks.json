@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-bridges-gate.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-bridges-gate.sh\"",
             "timeout": 10
           }
         ]
