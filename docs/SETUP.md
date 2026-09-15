@@ -109,8 +109,12 @@ to point at.
 After restarting Claude Code, run `claude mcp list`.
 
 - **Three-bridge mode:** all three bridges connected. An Antigravity call
-  returns a `session_id`; `codex-qa`/`codex-security` each return their
-  own `threadId` — confirm they differ even for the same diff.
+  returns a `session_id`; a `codex-qa`/`codex-security` `codex_exec` call
+  returns only a final message — no thread/session id, no follow-up (see
+  `docs/ARCHITECTURE.md#why-a-bridge-script`) — confirm a QA call and a
+  Security call on the same diff come back as independent `codex exec`
+  runs (e.g. by checking each ran under its own tmp dir/process, not a
+  shared one).
 - **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one
   `adversarial_review` call framed as QA and one framed as Security —
   confirm they return different `session_id` values.

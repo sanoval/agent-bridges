@@ -34,8 +34,9 @@ input or no ship step yet. Delete whichever mode's line doesn't apply.)
 ### Delegasi (jika ada)
 <role: Analyzer / Coder / Release Writer (semua antigravity, tapi session
 terpisah per role — jangan follow_up lintas role); lalu, three-bridge mode:
-QA (codex-qa) / Security (codex-security), threadId per server (tidak bisa
-ditukar); two-bridge mode: QA lens / Security lens (keduanya antigravity
+QA (codex-qa) / Security (codex-security), satu `codex_exec` call mandiri
+per server (tidak ada follow-up/threadId — Codex `mcp-server` sudah
+dihapus upstream); two-bridge mode: QA lens / Security lens (keduanya antigravity
 adversarial_review, session terpisah, jangan follow_up satu ke lainnya);
 hasil singkat — tandai setiap klaim VERIFIED (sitasi file:line sudah
 di-spot-check) atau UNVERIFIED>

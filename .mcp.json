@@ -9,13 +9,21 @@
       "timeout": 600000
     },
     "codex-qa": {
-      "command": "codex",
-      "args": ["--profile", "qa", "mcp-server"],
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridges/codex-exec-bridge.mjs"],
+      "env": {
+        "CODEX_BRIDGE_PROFILE": "qa",
+        "CODEX_BRIDGE_ROLE": "QA Engineer"
+      },
       "timeout": 600000
     },
     "codex-security": {
-      "command": "codex",
-      "args": ["--profile", "security", "mcp-server"],
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridges/codex-exec-bridge.mjs"],
+      "env": {
+        "CODEX_BRIDGE_PROFILE": "security",
+        "CODEX_BRIDGE_ROLE": "Security Engineer"
+      },
       "timeout": 600000
     }
   }

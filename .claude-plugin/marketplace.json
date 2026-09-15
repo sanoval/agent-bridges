@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "agent-bridges",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./",
       "description": "Delegation-pipeline and learning-curator skills, MCP bridge registration (antigravity, codex-qa, codex-security), and the Gate-enforcement hook for the agent-bridges pipeline.",
       "homepage": "https://github.com/sanoval/agent-bridges",

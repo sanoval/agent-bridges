@@ -105,10 +105,18 @@ namespace — do not mix them up:
   vice versa. Only use `follow_up` to continue the *same* role's work
   (e.g. Antigravity iterating on its own implementation after a test
   failure).
-- QA: `codex-reply` with the `threadId` the `codex-qa` server returned.
-- Security: `codex-reply` with the `threadId` the `codex-security` server
-  returned. A `codex-security` threadId is not valid on `codex-qa` and vice
-  versa — they are different processes even though both run `codex`.
+- QA and Security: **no follow-up.** `codex-qa`/`codex-security` each
+  expose one `codex_exec` tool (`bridges/codex-exec-bridge.mjs`, wrapping
+  `codex exec`) — every call spawns a fresh, independent `codex exec`
+  process and returns its final message; there is no session/thread to
+  resume (Codex's own `mcp-server`, which exposed `codex`/`codex-reply`
+  with a resumable `threadId`, was removed upstream in Codex CLI 0.154.0).
+  If a QA/Security round needs a second look — a fix landed, an answer was
+  incomplete — send a brand-new, fully self-contained call (diff + plan +
+  acceptance criteria again, not just the delta) rather than referencing
+  the earlier one. This makes Macro-Delegation (above) not just a
+  recommendation for QA/Security calls but a requirement: there is no
+  cheaper follow-up to fall back on.
 
 ## Shared skills
 

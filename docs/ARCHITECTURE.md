@@ -12,11 +12,31 @@ For "how do I install/set this up," see the main [README](../README.md) and
 - **Claude Code = MCP host.** Antigravity (`antigravity` server, running
   `agy-bridge`) and two separate Codex instances — `codex-qa` and
   `codex-security` — are three independent MCP servers over JSON-RPC 2.0.
-  Both Codex instances run the same binary but under different profiles
-  and don't share sessions.
+  Both Codex instances run the same `codex exec` binary but under
+  different profiles, each fronted by this repo's own
+  `bridges/codex-exec-bridge.mjs` (Codex's own `codex mcp-server` was
+  removed upstream in Codex CLI 0.154.0 — see "Why a bridge script"
+  below), and don't share sessions.
 - **Session continuity.** Antigravity uses `follow_up` with its
-  `session_id`. Each Codex instance uses its own `codex-reply` with the
-  `threadId` *that instance* returned — not valid across instances.
+  `session_id`. Codex has none: each `codex-qa`/`codex-security` call is a
+  fresh, independent `codex exec` process with no resumable thread — a
+  follow-up round means sending a new, fully self-contained call.
+
+### Why a bridge script
+
+Up to Codex CLI ~0.15x, `codex mcp-server` made Codex itself speak MCP,
+exposing `codex`/`codex-reply` tools with a resumable `threadId`. 0.154.0
+removed that subcommand — Codex now only ships `codex mcp` (Codex as an MCP
+*client*, opposite direction) and `codex app-server` (Codex's own
+JSON-RPC protocol, not MCP). `codex exec` — one-shot, non-interactive — is
+the only thing left that still fits "call Codex, get an answer back", so
+`bridges/codex-exec-bridge.mjs` is a ~150-line stdio MCP server that
+speaks MCP to Claude Code on one side and shells out to `codex exec
+--profile <qa|security> --json -o <tmpfile> "<prompt>"` on the other,
+returning the final message as the tool result. One file backs both
+`codex-qa` and `codex-security`; which profile it drives comes from the
+`CODEX_BRIDGE_PROFILE` env var set per `.mcp.json` entry. The cost is the
+lost `threadId`/follow-up — see "Session continuity" above.
 
 ## Repo layout
 
@@ -38,6 +58,8 @@ skills/learning-curator/
 hooks/
   hooks.json                     — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
   agent-bridges-gate.sh          — the Gate-enforcement script referenced by hooks.json
+bridges/
+  codex-exec-bridge.mjs          — stdio MCP shim wrapping `codex exec`, backing both codex-qa and codex-security (see "Why a bridge script" above)
 .mcp.json                        — antigravity/codex-qa/codex-security server definitions, auto-registered on enable
 templates/
   AGENTS.md                      — shared project memory, read by all three harnesses (you merge this into your project)
