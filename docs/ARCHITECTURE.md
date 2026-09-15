@@ -6,37 +6,45 @@ For "how do I install/set this up," see the main [README](../README.md) and
 
 ## Topology
 
-- **One direction only.** Claude Code calls all three bridges; none of
-  them call back into Claude Code or each other. Execution authority stays
-  at one point.
-- **Claude Code = MCP host.** Antigravity (`antigravity` server, running
-  `agy-bridge`) and two separate Codex instances — `codex-qa` and
-  `codex-security` — are three independent MCP servers over JSON-RPC 2.0.
-  Both Codex instances run the same `codex exec` binary but under
-  different profiles, each fronted by this repo's own
-  `bridges/codex-exec-bridge.mjs` (Codex's own `codex mcp-server` was
-  removed upstream in Codex CLI 0.154.0 — see "Why a bridge script"
-  below), and don't share sessions.
+- **One direction only.** Claude Code calls Antigravity and Codex; neither
+  calls back into Claude Code or each other. Execution authority stays at
+  one point.
+- **Claude Code = MCP host for Antigravity; plugin host for Codex.**
+  Antigravity (`antigravity` server, running `agy-bridge`) is a genuine MCP
+  server over JSON-RPC 2.0, registered in `.mcp.json`. Codex is different:
+  QA and Security both run through the `codex:codex-rescue` subagent,
+  provided by the separately-installed `openai/codex-plugin-cc` plugin
+  (see "Why a plugin, not an MCP server" and `docs/SETUP.md`) — invoked via
+  the `Agent` tool (`subagent_type: "codex:codex-rescue"`), not an MCP
+  `tools/call`. Both QA and Security drive the *same* subagent, the same
+  local `codex` binary and app-server, distinguished only by the `--model`
+  pin and framing text passed in the prompt — not two separate processes.
 - **Session continuity.** Antigravity uses `follow_up` with its
-  `session_id`. Codex has none: each `codex-qa`/`codex-security` call is a
-  fresh, independent `codex exec` process with no resumable thread — a
-  follow-up round means sending a new, fully self-contained call.
+  `session_id`. `codex:codex-rescue` calls are backgrounded jobs tracked by
+  task id (`/codex:status`, `/codex:result`) — QA's task id and Security's
+  are unrelated. It also supports resuming its own last thread
+  (`--resume`), but a QA/Security call should almost always pass `--fresh`
+  instead (see `skills/delegation-pipeline/SKILL.md`, "Session
+  continuity") so one role's framing never leaks into the other's context.
 
-### Why a bridge script
+### Why a plugin, not an MCP server
 
 Up to Codex CLI ~0.15x, `codex mcp-server` made Codex itself speak MCP,
-exposing `codex`/`codex-reply` tools with a resumable `threadId`. 0.154.0
-removed that subcommand — Codex now only ships `codex mcp` (Codex as an MCP
-*client*, opposite direction) and `codex app-server` (Codex's own
-JSON-RPC protocol, not MCP). `codex exec` — one-shot, non-interactive — is
-the only thing left that still fits "call Codex, get an answer back", so
-`bridges/codex-exec-bridge.mjs` is a ~150-line stdio MCP server that
-speaks MCP to Claude Code on one side and shells out to `codex exec
---profile <qa|security> --json -o <tmpfile> "<prompt>"` on the other,
-returning the final message as the tool result. One file backs both
-`codex-qa` and `codex-security`; which profile it drives comes from the
-`CODEX_BRIDGE_PROFILE` env var set per `.mcp.json` entry. The cost is the
-lost `threadId`/follow-up — see "Session continuity" above.
+exposing `codex`/`codex-reply` tools with a resumable `threadId` —
+this project originally registered `codex-qa`/`codex-security` as two MCP
+servers built on that. Codex CLI 0.154.0 removed that subcommand: Codex now
+only ships `codex mcp` (Codex as an MCP *client*, opposite direction) and
+`codex app-server` (Codex's own JSON-RPC protocol, not MCP). Rather than
+hand-roll a replacement bridge around one-shot `codex exec`, this project
+uses OpenAI's own [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
+plugin, which wraps the real `codex app-server` and ships a
+`codex:codex-rescue` subagent plus `/codex:review`, `/codex:status`,
+`/codex:result`, etc. The tradeoff versus the old MCP-server design: no
+resumable `threadId` (a follow-up is a fresh, fully self-contained call —
+see "Session continuity" above), and QA/Security no longer get their own
+persistent server process each — both share one subagent, differentiated
+per call by `--model` and prompt framing rather than by which server you
+called.
 
 ## Repo layout
 
@@ -58,9 +66,7 @@ skills/learning-curator/
 hooks/
   hooks.json                     — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
   agent-bridges-gate.sh          — the Gate-enforcement script referenced by hooks.json
-bridges/
-  codex-exec-bridge.mjs          — stdio MCP shim wrapping `codex exec`, backing both codex-qa and codex-security (see "Why a bridge script" above)
-.mcp.json                        — antigravity/codex-qa/codex-security server definitions, auto-registered on enable
+.mcp.json                        — antigravity server definition, auto-registered on enable (Codex QA/Security come from the separately-installed openai/codex-plugin-cc plugin, not this file)
 templates/
   AGENTS.md                      — shared project memory, read by all three harnesses (you merge this into your project)
   CLAUDE.md                      — always-on core: role/pin table, the Gate, "Do NOT delegate", checkpoint discipline (you merge this into your project)
@@ -145,14 +151,18 @@ boundary durable.
 See "Repo layout" above for what each file contains. A few notes beyond
 that:
 
-- Roles are pinned, not task-fit routed. QA and Security run in parallel
-  once Claude Code's own review pass is done; raw output is never piped
-  bridge-to-bridge. Independent units are delegated in parallel.
-- Only `antigravity`, `codex-qa`, and `codex-security` calls run on a
-  separate vendor's quota. Claude's own subagents (`Agent`/`Task`) still
-  burn Claude's own limit, so they're reserved for work needing a tool,
-  permission, or session state only Claude Code has — not coding, QA, or
-  security, which the three bridges own outright.
+- Roles are pinned, not task-fit routed. QA and Security both launch as
+  background jobs once Claude Code's own review pass is done; raw output
+  is never piped bridge-to-bridge. Independent units are delegated in
+  parallel.
+- Only `antigravity` calls and `codex:codex-rescue` calls run on a
+  separate vendor's quota — the latter is the one `Agent`-tool
+  `subagent_type` that isn't Claude (see `CLAUDE.md`, "Claude subagents are
+  not bridge delegation — except one"). Every other Claude subagent
+  (`Explore`, `general-purpose`, etc.) still burns Claude's own limit, so
+  they're reserved for work needing a tool, permission, or session state
+  only Claude Code has — not coding, QA, or security, which Antigravity and
+  `codex:codex-rescue` own outright.
 - The progress-file template (`review-topic-template.md`) uses Indonesian
   section headers, and `CLAUDE.md`'s rules refer to them by exact name —
   the section names are load-bearing. If you translate one file, translate
@@ -167,8 +177,8 @@ Three-bridge mode:
 Claude Code (Planner & Reviewer)
   -> Antigravity (antigravity MCP server, runs agy-bridge, Antigravity pin)
        — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
-  -> Codex QA (codex-qa MCP server, profile "qa", QA pin) — QA Engineer
-  -> Codex Security (codex-security MCP server, profile "security", Security pin) — Security Engineer
+  -> Codex QA (codex:codex-rescue subagent, --model QA pin, openai/codex-plugin-cc) — QA Engineer
+  -> Codex Security (codex:codex-rescue subagent, --model Security pin, openai/codex-plugin-cc) — Security Engineer
 
 Two-bridge mode:
 Claude Code (Planner & Reviewer — also primary defense, see CLAUDE-two-bridge-overlay.md)

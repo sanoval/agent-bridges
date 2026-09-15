@@ -7,24 +7,6 @@
         "AGY_DEFAULT_MODEL": "gemini-3.7-flash-medium"
       },
       "timeout": 600000
-    },
-    "codex-qa": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bridges/codex-exec-bridge.mjs"],
-      "env": {
-        "CODEX_BRIDGE_PROFILE": "qa",
-        "CODEX_BRIDGE_ROLE": "QA Engineer"
-      },
-      "timeout": 600000
-    },
-    "codex-security": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bridges/codex-exec-bridge.mjs"],
-      "env": {
-        "CODEX_BRIDGE_PROFILE": "security",
-        "CODEX_BRIDGE_ROLE": "Security Engineer"
-      },
-      "timeout": 600000
     }
   }
 }
