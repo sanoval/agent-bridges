@@ -5,8 +5,9 @@ about this codebase that any harness executing code in it needs, regardless
 of which one it is. It is read three different ways by the three harnesses
 in this pipeline, without being duplicated three times:
 
-- **Codex** (`codex-qa`, `codex-security`) reads this file natively — Codex
-  looks for `AGENTS.md` on its own, no setup needed.
+- **Codex** (invoked for QA/Security via the `codex:codex-rescue` subagent,
+  from the `openai/codex-plugin-cc` plugin) reads this file natively —
+  Codex looks for `AGENTS.md` on its own, no setup needed.
 - **Claude Code** reads it via the `@AGENTS.md` import line at the top of
   `CLAUDE.md` (see `templates/CLAUDE.md`, plus
   `templates/CLAUDE-two-bridge-overlay.md` appended to it in two-bridge mode)
@@ -31,7 +32,7 @@ Claude Code plugin (see `README.md` "Install"), not as files in this
 project. Claude Code discovers them globally once the plugin is enabled;
 Antigravity and Codex have no visibility into them at all (neither harness
 reads Claude Code's plugin store), so neither is ever pasted into a
-`codex-qa`/`codex-security` prompt and neither needs listing here for
+QA/Security `codex:codex-rescue` prompt and neither needs listing here for
 Codex's benefit.
 
 Any *additional* skill specific to this project still lives in one
@@ -45,7 +46,7 @@ Two directories are symlinks to it, not copies:
 
 Codex has no per-task skill loader, so it can't discover `skills/` on its
 own — it only ever sees a skill if Claude Code pastes the matching one's
-body into a `codex-qa`/`codex-security` prompt. The list below exists so
+body into a QA/Security `codex:codex-rescue` prompt. The list below exists so
 Codex (reading this file natively) at least knows what's available, even
 though it can't trigger one itself:
 

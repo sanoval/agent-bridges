@@ -1,17 +1,18 @@
 # Two-bridge mode deltas
 
 Read this alongside `SKILL.md` when this project runs two-bridge mode (no
-`codex-qa`/`codex-security` registered — `CLAUDE.md` carries the two-bridge
-overlay). It replaces step 4 and overrides the QA/Security material in
-`SKILL.md`; everything else in `SKILL.md` (steps 0–3, 6, Macro-Delegation for
-Analyzer/Coder/Release Writer, Shared skills, the optional second opinion,
-Orchestration rules) applies unchanged.
+`openai/codex-plugin-cc` plugin installed — `CLAUDE.md` carries the
+two-bridge overlay). It replaces step 4 and overrides the QA/Security
+material in `SKILL.md`; everything else in `SKILL.md` (steps 0–3, 6,
+Macro-Delegation for Analyzer/Coder/Release Writer, Shared skills, the
+optional second opinion, Orchestration rules) applies unchanged.
 
 ## Step 4 replacement — QA + Security lenses, sequentially
 
 **QA + Security lenses, sequentially** (`antigravity`, `adversarial_review`).
-Antigravity is one server/process — these two calls cannot run concurrently
-the way `codex-qa`/`codex-security` did. Run QA framing first, then Security
+Antigravity is one server/process — these two calls cannot run as two
+independently-backgrounded jobs the way the `codex:codex-rescue` QA/Security
+calls do in three-bridge mode. Run QA framing first, then Security
 framing, each as its own fresh session (not a `follow_up` of each other or of
 the Coder session) so one framing doesn't bias the other's findings.
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "agent-bridges",
-  "description": "Fixed-role delegation pipeline pairing Claude Code with Antigravity and Codex QA/Security MCP bridges.",
+  "description": "Fixed-role delegation pipeline pairing Claude Code with Antigravity (MCP bridge) and Codex QA/Security (via the openai/codex-plugin-cc plugin).",
   "owner": {
     "name": "Sanoval Awwalin",
     "url": "https://github.com/sanoval"
@@ -9,9 +9,9 @@
   "plugins": [
     {
       "name": "agent-bridges",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "source": "./",
-      "description": "Delegation-pipeline and learning-curator skills, MCP bridge registration (antigravity, codex-qa, codex-security), and the Gate-enforcement hook for the agent-bridges pipeline.",
+      "description": "Delegation-pipeline and learning-curator skills, the antigravity MCP bridge registration, and the Gate-enforcement hook for the agent-bridges pipeline. Codex QA/Security (three-bridge mode) requires separately installing openai/codex-plugin-cc.",
       "homepage": "https://github.com/sanoval/agent-bridges",
       "license": "MIT",
       "keywords": ["delegation", "mcp", "antigravity", "codex", "pipeline", "qa", "security"],

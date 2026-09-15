@@ -50,19 +50,33 @@ to point at.
 ### Remaining steps (still manual)
 
 1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
-   **Three-bridge mode only:** `codex` CLI installed and authenticated.
-2. **Three-bridge mode only** — pin QA/Security to models via Codex
-   profiles in `~/.codex/config.toml`:
-   ```toml
-   [profiles.qa]
-   model = "5.6 Terra"
-
-   [profiles.security]
-   model = "5.6 Sol"
+   **Three-bridge mode only:** `codex` CLI installed and authenticated
+   (`codex login`), Node.js 18.18+.
+2. **Three-bridge mode only** — install the
+   [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
+   plugin (separate from `agent-bridges` — it's what actually provides
+   Codex QA/Security, this project no longer runs its own Codex MCP
+   server):
    ```
-3. Verify: `claude mcp list` shows `antigravity` **Connected**
-   (two-bridge), or all three of `antigravity`, `codex-qa`,
-   `codex-security` **Connected** (three-bridge).
+   /plugin marketplace add openai/codex-plugin-cc
+   ```
+   ```
+   /plugin install codex@openai-codex
+   ```
+   ```
+   /reload-plugins
+   ```
+   ```
+   /codex:setup
+   ```
+   There is no separate QA/Security profile to configure — the QA pin
+   (`5.6 Terra`) and Security pin (`5.6 Sol`) from `CLAUDE.md`'s "Model
+   pins" table are passed as `--model` on each individual
+   `codex:codex-rescue` call (see `skills/delegation-pipeline/SKILL.md`),
+   not set once via `~/.codex/config.toml`.
+3. Verify: `claude mcp list` shows `antigravity` **Connected**. **Three-
+   bridge mode only:** also confirm `/agents` lists the `codex:codex-rescue`
+   subagent and `/codex:setup` reports Codex installed and authenticated.
 4. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
    merge it in) — keep the `@AGENTS.md` import line at the top.
    **Two-bridge mode:** also append `CLAUDE-two-bridge-overlay.md`.
@@ -95,8 +109,11 @@ to point at.
   client timeout ≥ that budget.
 - **Output cap:** Antigravity truncates at `AGY_MAX_OUTPUT_CHARS` (default
   50,000) — ask for dense, structured output (e.g. a pass/fail table).
-- **(Three-bridge)** `codex-qa` and `codex-security` are independent
-  processes — a `threadId` from one is meaningless on the other.
+- **(Three-bridge)** QA and Security calls both go through the same
+  `codex:codex-rescue` subagent — a `/codex:status`/`/codex:result` task id
+  from one call is meaningless for the other; always pass `--fresh` on a
+  QA/Security call rather than letting it offer to resume the other role's
+  thread.
 - **(Two-bridge)** QA and Security lenses run sequentially, not in
   parallel — both are `adversarial_review` calls on the same server.
 - **Macro-delegation:** send the full plan and every touched file to
@@ -108,9 +125,12 @@ to point at.
 
 After restarting Claude Code, run `claude mcp list`.
 
-- **Three-bridge mode:** all three bridges connected. An Antigravity call
-  returns a `session_id`; `codex-qa`/`codex-security` each return their
-  own `threadId` — confirm they differ even for the same diff.
+- **Three-bridge mode:** `antigravity` connected, and `codex:codex-rescue`
+  runnable (see step 3 above). An Antigravity call returns a `session_id`;
+  a QA or Security `codex:codex-rescue` call returns a task id you poll via
+  `/codex:status`/`/codex:result` — confirm a QA call and a Security call
+  on the same diff come back as independent task ids with different
+  findings (see `docs/ARCHITECTURE.md`, "Why a plugin, not an MCP server").
 - **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one
   `adversarial_review` call framed as QA and one framed as Security —
   confirm they return different `session_id` values.

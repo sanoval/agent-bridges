@@ -23,25 +23,28 @@ restating its value. The only other place a literal may appear is
 | Pin | Value | Applies to |
 |---|---|---|
 | Antigravity pin | `gemini-3.7-flash-medium` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on `AGY_DEFAULT_MODEL` as anything but a fallback |
-| QA pin | `5.6 Terra` | `codex-qa` — set once via the codex `qa` profile, not per call |
-| Security pin | `5.6 Sol` | `codex-security` — set once via the codex `security` profile, not per call |
+| QA pin | `5.6 Terra` | Passed as `--model "5.6 Terra"` on every QA `codex:codex-rescue` call — there is no profile to set it once, it's a per-call flag |
+| Security pin | `5.6 Sol` | Passed as `--model "5.6 Sol"` on every Security `codex:codex-rescue` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |
 
 ## Roles
 
-You have three MCP delegation bridges. `antigravity` plays three fixed roles
-at different pipeline stages (all same server, same model); `codex-qa` and
-`codex-security` each play one fixed role. Roles are **not** task-fit
-swapped the way earlier revisions of this template did it — each role
-always does the same job, at the same point in the pipeline:
+You have one MCP delegation bridge (`antigravity`) and one plugin-provided
+subagent (`codex:codex-rescue`, from the `openai/codex-plugin-cc` plugin —
+see `docs/SETUP.md`). `antigravity` plays three fixed roles at different
+pipeline stages (all same server, same model); `codex:codex-rescue` plays
+two fixed roles, distinguished only by which model pin and framing you pass
+it — it is the same subagent both times, not two separate processes. Roles
+are **not** task-fit swapped the way earlier revisions of this template did
+it — each role always does the same job, at the same point in the pipeline:
 
-| Role | Bridge (MCP server) | Model | Job |
+| Role | Bridge | Model | Job |
 |---|---|---|---|
 | Document Analyzer | `antigravity` | Antigravity pin | Ingests specs/PRDs/docs before planning and produces a requirement matrix |
 | Planner & Code Reviewer | You (Claude Code) | none (you) | Plan the work from the requirement matrix, hand it to Antigravity to implement, then review the resulting diff before it goes to QA/Security |
 | Coder / Executor | `antigravity` | Antigravity pin | Implements the plan: writes/edits code, runs it, iterates until it works |
-| QA Engineer | `codex-qa` | QA pin | Tests the diff: correctness, edge cases, regressions *(three-bridge mode; the two-bridge overlay replaces this row)* |
-| Security Engineer | `codex-security` | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. *(three-bridge mode; the two-bridge overlay replaces this row)* |
+| QA Engineer | `codex:codex-rescue` (Agent tool) | QA pin | Tests the diff: correctness, edge cases, regressions — read-only framing, `--model` set to the QA pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
+| Security Engineer | `codex:codex-rescue` (Agent tool) | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. — read-only framing, `--model` set to the Security pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
 | Release / Changelog Writer | `antigravity` | Antigravity pin | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
 
 You are the only party with repo write access to *decide* — Antigravity
@@ -75,16 +78,21 @@ and approves rather than something that happens silently. The hook does not
 cover the Bash half of this gate (file-modifying shell commands) — that
 stays your own responsibility to catch.
 
-## Claude subagents are not bridge delegation
+## Claude subagents are not bridge delegation — except one
 
-Your own subagents (the `Agent`/`Task` tool — `Explore`, `general-purpose`,
-etc.) still run as Claude and still count against Claude's own usage limit.
-Only `antigravity`, `codex-qa`, and `codex-security` calls run on a separate
-vendor's quota. Reserve Claude subagents for work that genuinely needs a
-tool, permission, or piece of session state only Claude Code has (e.g.
-reading your own conversation state, running local git commands as part of
-review) — not for coding, QA, or security work, which the three bridges
-above own.
+Your own subagents (the `Agent`/`Task` tool with `subagent_type: Explore`,
+`general-purpose`, etc.) still run as Claude and still count against
+Claude's own usage limit. `codex:codex-rescue` is the one exception: it is
+a subagent *name*, invoked through the same `Agent` tool, but it is
+provided by the `openai/codex-plugin-cc` plugin and runs Codex on Codex's
+own quota, not Claude's — it only looks like a Claude subagent because of
+which tool launches it. Only `antigravity` calls and `codex:codex-rescue`
+calls run on a separate vendor's quota; every other `subagent_type` is
+Claude. Reserve genuine Claude subagents for work that needs a tool,
+permission, or piece of session state only Claude Code has (e.g. reading
+your own conversation state, running local git commands as part of
+review) — not for coding, QA, or security work, which `antigravity` and
+`codex:codex-rescue` own.
 
 ## Do NOT delegate
 

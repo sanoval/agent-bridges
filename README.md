@@ -1,13 +1,12 @@
 # agent-bridges
 
-A fixed-role delegation pipeline that pairs **Claude Code** with three MCP
-bridges, each with one fixed job:
+A fixed-role delegation pipeline that pairs **Claude Code** with two
+delegation bridges, each with fixed jobs:
 
 | Role | Bridge |
 |---|---|
 | Document Analyzer, Coder/Executor, Release-Changelog Writer | **Antigravity** (`agy-bridge` MCP server) |
-| QA Engineer | **Codex QA** (`codex-qa`) |
-| Security Engineer | **Codex Security** (`codex-security`) |
+| QA Engineer, Security Engineer | **Codex** (`codex:codex-rescue` subagent, via the separately-installed [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin) |
 | Planner and Code Reviewer, final say on every bridge output | **Claude Code** |
 
 Claude Code is the only agent with tool access, repo/session state, and
@@ -44,14 +43,17 @@ can merge them into a single command and break the owner/repo argument:
 /plugin install agent-bridges@agent-bridges
 ```
 
-This registers all three MCP servers (`antigravity`, `codex-qa`,
-`codex-security`), the `delegation-pipeline` and `learning-curator`
-skills, and the Gate `PreToolUse` hook — and keeps them current
-(`/plugin install agent-bridges@agent-bridges --update` to force a check).
+This registers the `antigravity` MCP server, the `delegation-pipeline` and
+`learning-curator` skills, and the Gate `PreToolUse` hook — and keeps them
+current (`/plugin install agent-bridges@agent-bridges --update` to force a
+check).
 
-Not on a Codex subscription? `codex-qa`/`codex-security` will simply fail
-to connect (`claude mcp list` shows them **Failed**) — harmless in
-two-bridge mode, see "Which mode do I need?" below.
+**Three-bridge mode (Codex QA/Security) is a separate install**, not part
+of this plugin: it's OpenAI's own
+[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
+plugin — see `docs/SETUP.md` step 2. Not on a Codex subscription, or
+haven't installed that plugin? You're in two-bridge mode by default,
+harmless, see "Which mode do I need?" below.
 
 **Scope this to the projects that actually run the pipeline.** The Gate
 hook fires on every `Edit`/`Write`/`NotebookEdit` in any project where the
@@ -73,9 +75,9 @@ learning), and a narrated end-to-end example.
 
 ## Which mode do I need?
 
-- **Have a Codex subscription too?** Use `templates/CLAUDE.md` as-is
-  (three-bridge mode). QA and Security get their own independent
-  model/process each.
+- **Have a Codex subscription too?** Install `openai/codex-plugin-cc`
+  (`docs/SETUP.md` step 2) and use `templates/CLAUDE.md` as-is (three-bridge
+  mode). QA and Security each get their own model pin, passed per call.
 - **Only Claude Code + Antigravity?** Copy `templates/CLAUDE.md` and
   append `templates/CLAUDE-two-bridge-overlay.md` (two-bridge mode). QA
   and Security fold into two separately-framed Antigravity
@@ -93,6 +95,10 @@ The Antigravity integration uses
 [agy-bridge](https://github.com/sshahzaiib/agy-bridge) by Shahzaib Akram
 as an external MCP dependency (registered locally as `antigravity`),
 distributed under the MIT License.
+
+The Codex QA/Security integration (three-bridge mode) uses OpenAI's own
+[`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin as an
+external dependency — installed separately, not bundled with this plugin.
 
 ## License
 

@@ -1,8 +1,8 @@
 {
   "name": "agent-bridges",
   "displayName": "Agent Bridges",
-  "description": "Fixed-role delegation pipeline pairing Claude Code with Antigravity and Codex QA/Security MCP bridges: delegation-pipeline and learning-curator skills, auto-registered MCP bridges, and the Gate-enforcement hook.",
-  "version": "0.1.0",
+  "description": "Fixed-role delegation pipeline pairing Claude Code with Antigravity (MCP bridge) and Codex QA/Security (via openai/codex-plugin-cc): delegation-pipeline and learning-curator skills, the antigravity MCP bridge registration, and the Gate-enforcement hook.",
+  "version": "0.2.0",
   "author": {
     "name": "Sanoval Awwalin",
     "email": "sanoval.awwalin@gmail.com"
