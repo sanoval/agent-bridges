@@ -114,10 +114,56 @@ secara rinci (baris 201-243). Uji manual:
   manual — README eksplisit bilang "not useful to invoke by hand". Klaim #2
   di bawah baru benar-benar teruji lewat call `agy_run` sungguhan.
 
+### Keputusan scope: global (user), bukan project
+
+Pengguna memilih scope **user**, bukan project/local — alasan: kesederhanaan
+operasional pribadi, bukan untuk distribusi tim. Konsekuensi yang sudah
+dicatat ke pengguna: (1) blast radius pilot jadi semua project yang dibuka,
+bukan cuma satu project uji; (2) ini di luar model distribusi plugin
+`agent-bridges` (yang berbasis per-project enable) — kalau produksi nanti
+juga dipilih scope user, `agent-bridges` berhenti jadi sesuatu yang bisa
+dibagi ke tim untuk bagian bridge Antigravity-nya. Belum ada keputusan final
+soal ini untuk Fase 3 — dicatat sebagai keputusan terbuka.
+
+`~/.claude/settings.json` pengguna ternyata sudah kompleks: terintegrasi
+dengan sistem hook eksternal (`~/.orca/agent-hooks/*`) dan status bar
+iTerm2 di hampir semua event hook, plus `PostToolUse` sudah punya 2 entry
+wildcard sebelum migrasi ini. Overwrite penuh ditolak — dipakai `jq` untuk
+menambah satu elemen ke array `PostToolUse` yang sudah ada:
+
+```bash
+cp ~/.claude/settings.json ~/.claude/settings.json.bak
+jq '.hooks.PostToolUse += [{
+  "matcher": "mcp__antigravity_next__agy_run(_sync)?",
+  "hooks": [
+    { "type": "command", "command": "agy-mcp hook-wait", "asyncRewake": true, "timeout": 3700 }
+  ]
+}]' ~/.claude/settings.json > /tmp/settings.json.new && mv /tmp/settings.json.new ~/.claude/settings.json
+```
+
+**Terverifikasi:** `jq empty` valid, `PostToolUse | length` naik dari 2 ke 3.
+Backup ada di `~/.claude/settings.json.bak`.
+
+Catatan lain dari file yang sama (bukan bagian migrasi ini, sekadar temuan):
+`enabledPlugins` pengguna sudah mengaktifkan `codex@openai-codex` **dan**
+`agent-bridges@agent-bridges` — kemungkinan besar pengguna sudah three-bridge
+mode di sebagian besar project, bukan two-bridge seperti asumsi diskusi pin
+QA/Security lens sebelumnya. Pin `gemini-3.1-pro-high`/
+`claude-opus-4-6-thinking` di langkah migrasi hanya relevan untuk project
+yang benar-benar memakai overlay two-bridge — verifikasi per-project sebelum
+menerapkannya.
+
 ### Langkah (dijalankan di mesin lokal)
 
 1. Pasang binary — **sudah selesai**: `agy-mcp` v2.6.1 di
    `/opt/homebrew/bin/agy-mcp`.
+1b. Hook wake — **sudah selesai** (di atas), scope user/global.
+1c. **Belum selesai** — registrasi MCP server-nya sendiri (file berbeda,
+    `~/.claude.json`, bukan `settings.json`):
+    ```bash
+    claude mcp add antigravity_next agy-mcp --scope user
+    ```
+    lalu restart Claude Code sebelum lanjut ke uji klaim 1-3.
    ```bash
    brew install tphakala/tap/agy-mcp   # atau: go install github.com/tphakala/agy-mcp/v2@latest
    agy-mcp --version && which agy-mcp
