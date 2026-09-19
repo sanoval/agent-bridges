@@ -207,17 +207,31 @@ menerapkannya.
 | # | Klaim | Lulus? | Bukti / catatan |
 |---|---|---|---|
 | 1 | `mode: "plan"` read-only | **LULUS** | Diminta review README, agy-mcp mengembalikan plan/usulan tanpa menyentuh file — dikonfirmasi tidak ada perubahan tercatat |
-| 2 | Hook wake berfungsi | <isi> | <isi> |
-| 3 | Job konkuren | <isi> | <isi> |
-| — | Durasi call Coder via `agy-mcp` | — | <isi — bandingkan dengan baseline Unit 0> |
-| — | Ada call yang menggantung? | — | <isi> |
+| 2 | Hook wake berfungsi | **LULUS** | Dikonfirmasi pengguna, tanpa detail tambahan (tidak ada timing/observasi spesifik dicatat) |
+| 3 | Job konkuren | **LULUS** | Dikonfirmasi pengguna, tanpa detail tambahan |
+| — | Durasi call Coder via `agy-mcp` | — | Tidak dicatat — baseline Fase 0 juga belum diisi, jadi perbandingan kuantitatif belum bisa dibuat meski klaim kualitatif (tidak hang, wake bekerja) sudah terbukti |
+| — | Ada call yang menggantung? | — | Tidak dilaporkan selama tiga uji |
 
 ### Gap list
 | # | Gap | Severity | Catatan |
 |---|-----|----------|---------|
 
 ### Kesimpulan
-<isi — verdict eksplisit: LANJUT ke Fase 2, atau BERHENTI + alasan>
+**LANJUT ke Fase 2.** Ketiga klaim README yang belum terverifikasi di awal
+sesi ini — read-only via `mode: "plan"`, wake otomatis lewat hook (bukan
+polling), dan job konkuren tanpa cross-talk — semuanya lulus uji nyata,
+bukan cuma dugaan dari dokumentasi. Ini menutup keraguan yang sempat muncul
+di tengah jalan (kekeliruan riset soal `hook-wait` tidak ada — lihat
+"Pendekatan yang sudah dicoba & gagal" #4).
+
+Yang **belum** tervalidasi dan tetap jadi utang sebelum rilis produksi
+(Fase 3): perbandingan durasi kuantitatif terhadap `agy-bridge` (baseline
+Fase 0 tidak pernah diisi), dan perilaku di bawah beban/paralelisme lebih
+dari dua job sekaligus (three-bridge mode bisa memicu Coder + Analyzer +
+Release Writer semua lewat server yang sama dalam satu sesi panjang).
+Direkomendasikan: isi baseline itu retroaktif kalau memungkinkan, atau
+jalankan satu unit kerja penuh (bukan cuma uji terisolasi) sebelum Fase 3
+sebagai uji akhir.
 
 ---
 
@@ -227,6 +241,7 @@ menerapkannya.
 | 1 | Naikkan `AGY_TIMEOUT_DELEGATE` + client timeout supaya ada margin | Ditolak pemilik repo: memperpanjang tunggu bukan solusi, cuma memindahkan ceiling. Berguna hanya sebagai alat diagnosis, bukan konfigurasi produksi | 2026-09-19 |
 | 2 | Hipotesis: chain `adversarial_review` diam-diam jatuh ke `AGY_DEFAULT_MODEL` (= pin Coder), sehingga lens QA/Security selama ini mereview karya sendiri | **Terbantah** oleh output `agy models`: `gemini-3.1-pro-high` tersedia di akun ini, jadi picker mengambilnya. Independensi model two-bridge selama ini nyata | 2026-09-19 |
 | 3 | Adopsi `agy-executor` sebagai pengganti bridge | Ditolak: 0 star, 7 commit, tanpa rilis, tanpa fallback/model chain. Risiko jadi maintainer tunggal proyek orang lain yang terbengkalai | 2026-09-19 |
+| 4 | Kesimpulan awal: subcommand `hook-wait` tidak ada di `agy-mcp` v2.6.1 | **Kesalahan riset**, bukan fakta rilis — WebFetch salah meringkas 10 release notes terakhir. README mentah `main` mendokumentasikannya rinci; uji manual (`exit code 0`, bukan 127) dan akhirnya uji end-to-end (Unit 1 klaim #2) mengonfirmasi fiturnya nyata dan berfungsi | 2026-09-19 |
 
 ---
 
