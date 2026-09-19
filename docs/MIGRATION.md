@@ -1,9 +1,11 @@
 # Migrating the Antigravity bridge: `agy-bridge` → `agy-mcp`
 
 **Applies to:** agent-bridges `0.2.x` → `0.3.0`.
-**Status:** this guide describes `0.3.0`. Do not follow it until `0.3.0` is
-released — on `0.2.x` the plugin still registers `agy-bridge` and none of
-the tool names below exist.
+**Status:** current as of `0.3.0` (released). If `claude mcp list` still
+shows `antigravity` running `npx ... agy-bridge` after updating, see step 3
+of "Migration steps" below — Claude Code caches resolved MCP server
+commands per project and does not always re-resolve them just because
+`.mcp.json` changed.
 
 ## Why this migration exists
 
@@ -116,6 +118,17 @@ on that name. The practical consequence: upstream `agy-mcp` documentation
 and issue threads refer to tools as `mcp__agy__agy_run`, while yours are
 `mcp__antigravity__agy_run`. Translate accordingly when reading upstream
 material.
+
+**If `claude mcp list` still shows the old command afterward:** this is
+the same caching behavior documented in `docs/SETUP.md` step 0c for the
+pre-0.2.0 `codex-qa`/`codex-security` leftovers, applied to a same-name
+change instead of a removed one — Claude Code caches each project's
+*resolved* MCP server command into `~/.claude.json` and doesn't always
+re-resolve it just because `.mcp.json`'s command changed under an
+unchanged server name. Fix: `claude mcp remove antigravity` from the
+project root, then restart Claude Code so it re-reads `.mcp.json` fresh.
+This does not touch the `agy-mcp` binary or your model pins — only the
+cached command Claude Code was reusing.
 
 ### 4. Verify your model pins are IDs, not display labels
 

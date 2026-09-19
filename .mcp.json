@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "antigravity": {
-      "command": "npx",
-      "args": ["-y", "agy-bridge"],
+      "command": "agy-mcp",
       "env": {
-        "AGY_DEFAULT_MODEL": "gemini-3.8-flash-medium"
+        "AGY_MCP_DEFAULT_MODEL": "gemini-3.8-flash-medium"
       },
       "timeout": 600000
     }

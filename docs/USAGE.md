@@ -35,8 +35,8 @@ and runs the numbered pipeline from `SKILL.md`:
 4. **Review** — Claude Code reads the resulting diff before anything else
    sees it.
 5. **QA + Security** — each sent to the `codex:codex-rescue` subagent as
-   its own background job (or Antigravity's two `adversarial_review`
-   lenses, in two-bridge mode).
+   its own background job (or two backgrounded `agy_run` lens calls on
+   Antigravity, in two-bridge mode).
 6. **Reconcile** — findings get fixed or dispatched back to Antigravity.
 7. **Release notes** — Antigravity drafts a changelog entry once the unit
    ships; you still review and commit it.
@@ -107,9 +107,14 @@ you:  /compact, then start the next unit
 ## Two-bridge mode differences
 
 If you're running without a Codex subscription (see README → "Which mode
-do I need?"), step 4 above is two `adversarial_review` calls on the same
-Antigravity server instead of two independent bridges — weaker
-independence, since both lenses share a model family. Nothing about how
+do I need?"), step 4 above is two backgrounded `agy_run` calls on the same
+Antigravity server instead of two independent bridges. Each lens gets its
+own model pin (see `two-bridge.md`, "Model pins"), so this is no longer
+automatically weaker on model independence the way the old
+`adversarial_review` chain was — what's still weaker is shared
+infrastructure: both lenses and the Coder role run through one `agy`
+account, so an outage or quota exhaustion there takes out all three at
+once, unlike three-bridge mode's separate Codex vendor. Nothing about how
 *you* interact with the pipeline changes; `two-bridge.md` inside the
 `delegation-pipeline` skill only changes what Claude Code does internally.
 

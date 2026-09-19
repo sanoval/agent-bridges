@@ -5,8 +5,8 @@ two bridges are available — no Codex subscription, only Claude Code and
 Antigravity. This project runs two-bridge mode: **do not install**
 `openai/codex-plugin-cc`. Same pipeline shape, same checkpoint discipline,
 but QA and Security no longer have a dedicated bridge each: both fold into
-Antigravity, run as two separately-framed `adversarial_review` passes instead
-of two `codex:codex-rescue` calls.
+Antigravity, run as two separately-framed, separately-pinned, backgrounded
+`agy_run` calls instead of two `codex:codex-rescue` calls.
 
 ### Role table override
 
@@ -58,6 +58,5 @@ parallelism/failure/verification deltas live in
 If a Codex subscription becomes available later: delete this overlay from
 the bottom of `CLAUDE.md`, delete `skills/delegation-pipeline/two-bridge.md`,
 and install `openai/codex-plugin-cc` per `docs/SETUP.md`.
-Nothing about steps 0–3 or 6 changes — only step 4 moves from two
-`adversarial_review` lens calls to two `codex:codex-rescue` calls (QA pin,
-then Security pin).
+Nothing about steps 0–3 or 6 changes — only step 4 moves from two `agy_run`
+lens calls to two `codex:codex-rescue` calls (QA pin, then Security pin).

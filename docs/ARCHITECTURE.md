@@ -10,22 +10,31 @@ For "how do I install/set this up," see the main [README](../README.md) and
   calls back into Claude Code or each other. Execution authority stays at
   one point.
 - **Claude Code = MCP host for Antigravity; plugin host for Codex.**
-  Antigravity (`antigravity` server, running `agy-bridge`) is a genuine MCP
-  server over JSON-RPC 2.0, registered in `.mcp.json`. Codex is different:
-  QA and Security both run through the `codex:codex-rescue` subagent,
-  provided by the separately-installed `openai/codex-plugin-cc` plugin
-  (see "Why a plugin, not an MCP server" and `docs/SETUP.md`) — invoked via
-  the `Agent` tool (`subagent_type: "codex:codex-rescue"`), not an MCP
-  `tools/call`. Both QA and Security drive the *same* subagent, the same
-  local `codex` binary and app-server, distinguished only by the `--model`
-  pin and framing text passed in the prompt — not two separate processes.
-- **Session continuity.** Antigravity uses `follow_up` with its
-  `session_id`. `codex:codex-rescue` calls are backgrounded jobs tracked by
-  task id (`/codex:status`, `/codex:result`) — QA's task id and Security's
-  are unrelated. It also supports resuming its own last thread
-  (`--resume`), but a QA/Security call should almost always pass `--fresh`
-  instead (see `skills/delegation-pipeline/SKILL.md`, "Session
-  continuity") so one role's framing never leaks into the other's context.
+  Antigravity (`antigravity` server, running `agy-mcp`) is a genuine MCP
+  server over JSON-RPC 2.0, registered in `.mcp.json`. Unlike a request/
+  response MCP call, `agy_run` dispatches an *async job*: it returns a
+  `job_id` immediately, the underlying `agy` CLI run continues in the
+  background, and a `PostToolUse` hook wakes Claude Code when the job
+  lands — there is no blocking call sitting on a timeout ceiling (see
+  `docs/MIGRATION.md` for why that distinction mattered enough to change
+  bridges over). Codex is different: QA and Security both run through the
+  `codex:codex-rescue` subagent, provided by the separately-installed
+  `openai/codex-plugin-cc` plugin (see "Why a plugin, not an MCP server"
+  and `docs/SETUP.md`) — invoked via the `Agent` tool (`subagent_type:
+  "codex:codex-rescue"`), not an MCP `tools/call`. Both QA and Security
+  drive the *same* subagent, the same local `codex` binary and app-server,
+  distinguished only by the `--model` pin and framing text passed in the
+  prompt — not two separate processes.
+- **Session continuity.** Antigravity's `agy_run` accepts a
+  `conversation_id` from a prior call to continue that same conversation.
+  `codex:codex-rescue` calls are backgrounded jobs tracked by task id
+  (`/codex:status`, `/codex:result`) — QA's task id and Security's are
+  unrelated. It also supports resuming its own last thread (`--resume`),
+  but a QA/Security call should almost always pass `--fresh` instead (see
+  `skills/delegation-pipeline/SKILL.md`, "Session continuity") so one
+  role's framing never leaks into the other's context — the same
+  discipline `agy_run`'s `conversation_id` needs across Antigravity's own
+  three roles.
 
 ### Why a plugin, not an MCP server
 
@@ -59,7 +68,7 @@ the plugin is enabled:
   plugin.json                    — plugin manifest (name, version — bump this to ship an update)
 skills/delegation-pipeline/
   SKILL.md                       — pipeline steps, payload contracts, session continuity, example prompts
-  two-bridge.md                  — two-bridge deltas: step 4 replacement, adversarial_review lens calls
+  two-bridge.md                  — two-bridge deltas: step 4 replacement, backgrounded lens calls
 skills/learning-curator/
   SKILL.md                       — post-verification learning: classification, evidence scoring, hard gates
   proposal-template.md           — format for a pending learning proposal
@@ -175,16 +184,16 @@ Two topologies:
 ```text
 Three-bridge mode:
 Claude Code (Planner & Reviewer)
-  -> Antigravity (antigravity MCP server, runs agy-bridge, Antigravity pin)
+  -> Antigravity (antigravity MCP server, runs agy-mcp, async job per call, Antigravity pin)
        — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
   -> Codex QA (codex:codex-rescue subagent, --model QA pin, openai/codex-plugin-cc) — QA Engineer
   -> Codex Security (codex:codex-rescue subagent, --model Security pin, openai/codex-plugin-cc) — Security Engineer
 
 Two-bridge mode:
 Claude Code (Planner & Reviewer — also primary defense, see CLAUDE-two-bridge-overlay.md)
-  -> Antigravity (antigravity MCP server, runs agy-bridge)
+  -> Antigravity (antigravity MCP server, runs agy-mcp, async job per call)
        — Document Analyzer / Coder-Executor / Release-Changelog Writer (Antigravity pin)
-       — QA lens / Security lens (adversarial_review chain: Gemini 3.1 Pro high -> Claude Opus 4.6 -> Flash)
+       — QA lens / Security lens (backgrounded, concurrent agy_run calls — QA lens pin / Security lens pin, independently chosen model families)
 ```
 
 This is a PoC: a fixed-role pipeline (plan → implement → review → QA +
