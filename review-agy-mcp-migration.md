@@ -281,6 +281,89 @@ sebagai uji akhir.
 
 ---
 
+---
+
+## Status: Unit 2 — Fase 3: verifikasi jalur plugin end-to-end — BELUM MULAI
+
+Beda dengan Unit 1: itu menguji `agy-mcp` lewat registrasi manual
+(`antigravity_next`). Unit ini menguji apakah **jalur distribusi plugin
+yang sebenarnya** — yang dipakai siapa pun yang `/plugin install
+agent-bridges@agent-bridges` — benar-benar mengirimkan `agy-mcp`, bukan
+cuma kode di repo yang terlihat benar saat dibaca.
+
+### Test A — plugin ter-update ke 0.3.0
+
+```bash
+/plugin install agent-bridges@agent-bridges --update
+```
+Verifikasi versi baru benar-benar terpasang (bukan cache lama):
+```bash
+ls -td ~/.claude/plugins/cache/agent-bridges/agent-bridges/*/ | head -1
+```
+**Lulus** kalau direktori terbaru bernama `.../0.3.0/`.
+
+### Test B — risiko caching command (dugaan dari `docs/SETUP.md` 0c, belum pernah dibuktikan nyata)
+
+```bash
+claude mcp list
+```
+Lihat baris `antigravity`. **Ada dua kemungkinan hasil, dua-duanya informatif:**
+- Kalau langsung menunjukkan command `agy-mcp` → dugaan cache tidak
+  berlaku di sini, catat itu (informasi berharga, bukan cuma "lulus").
+- Kalau masih menunjukkan `npx ... agy-bridge` walau plugin sudah 0.3.0 →
+  dugaan cache **terbukti**. Terapkan fix dari `docs/MIGRATION.md`:
+  `claude mcp remove antigravity` lalu restart Claude Code, cek lagi.
+  **Lulus** kalau setelah fix itu barulah muncul `agy-mcp`.
+
+### Test C — hook wake lewat jalur plugin (bukan `antigravity_next` manual)
+
+Di project pilot yang plugin-nya sudah update, minta satu delegasi Coder
+nyata lewat peran yang plugin/skill pilih sendiri (bukan kamu sebut nama
+tool manual) — biarkan `delegation-pipeline` skill yang baru yang memilih
+`agy_run` + `mode: "accept-edits"` sesuai isi `SKILL.md` hasil Fase 2.
+Jangan polling. **Lulus** kalau wake tetap terjadi otomatis — ini
+memastikan hook plugin (`mcp__antigravity__agy_run(_sync)?`, bukan
+`antigravity_next`) benar-benar ter-pasang dan match.
+
+### Test D — satu unit kerja penuh, memakai isi skill hasil tulis ulang persis apa adanya
+
+Jalankan satu unit nyata dari awal sampai akhir tanpa kamu menerjemahkan
+instruksi skill secara manual — biarkan Claude Code membaca
+`delegation-pipeline`/`two-bridge.md` sendiri dan mengeksekusi:
+Analyze (kalau ada dokumen) → Plan (kamu) → Implement (Coder,
+`mode: "accept-edits"`) → Review (kamu) → QA+Security → Reconcile →
+Release notes (`mode: "plan"`).
+
+Kalau project pilot kamu **three-bridge mode** (`codex@openai-codex`
+aktif — cek `enabledPlugins` di `settings.json`-mu, kelihatannya iya):
+QA/Security tetap lewat `codex:codex-rescue`, tidak terpengaruh migrasi
+ini — cukup pastikan tidak ada regresi.
+
+Kalau **two-bridge mode**: pastikan QA lens dan Security lens benar-benar
+jalan dengan pin berbeda (`gemini-3.1-pro-high` vs
+`claude-opus-4-6-thinking` atau pin pilihanmu sendiri — verifikasi dulu
+lewat `list_models`) dan **paralel** (dua `job_id` sebelum salah satu
+selesai) — ini klaim baru dari Fase 2 yang belum pernah diuji nyata.
+
+**Lulus** kalau: (1) Gate hook tetap menahan Edit/Write langsung di luar
+Coder call (regresi-check — `hooks.json` sekarang punya 2 entry, pastikan
+keduanya jalan, tidak saling ganggu); (2) checkpoint di `review-<topic>.md`
+project itu berisi `job_id`/`conversation_id` sesuai format baru, bukan
+`session_id` lama; (3) tidak ada satu pun langkah yang hang/timeout.
+
+### Yang direkam di sini
+| # | Test | Lulus? | Catatan |
+|---|---|---|---|
+| A | Plugin ter-update ke 0.3.0 | <isi> | <isi> |
+| B | Risiko caching command | <isi> | <isi — sebutkan apakah cache benar-benar terjadi> |
+| C | Hook wake lewat jalur plugin | <isi> | <isi> |
+| D | Satu unit penuh, skill apa adanya | <isi> | <isi — sebutkan mode: two-bridge atau three-bridge> |
+
+### Kesimpulan
+<isi — verdict eksplisit: RILIS (semua lulus) atau BERHENTI + apa yang harus diperbaiki dulu>
+
+---
+
 ## Arsip
 Unit yang sudah SELESAI dan tidak lagi dirujuk oleh gap terbuka dipindahkan ke
 `review-agy-mcp-migration-archive.md`, sisakan ringkasan satu baris di sini.
