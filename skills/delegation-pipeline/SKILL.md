@@ -20,20 +20,21 @@ file assumes you've already read that.
 
 0. **Analyze** (`antigravity`, Document Analyzer role, Antigravity pin).
    When the unit starts from a spec/PRD/doc rather than a self-evident bug
-   or already-clear ask, send Antigravity the full doc set with
-   `analyze_files` or `web_lookup` and ask for a structured requirement
-   matrix (requirement → source citation → open questions). Skip this step
+   or already-clear ask, send Antigravity the full doc set via `agy_run`
+   with `mode: "plan"` and ask for a structured requirement matrix
+   (requirement → source citation → open questions). Skip this step
    for units with no doc input to ingest.
 1. **Plan** (you). Break the task into a concrete implementation spec:
    files/modules touched, the change itself, acceptance criteria — using
    the requirement matrix from step 0 if there was one. This is your job
    alone — do not delegate planning to Antigravity or Codex.
 2. **Implement** (`antigravity`, Coder role, Antigravity pin). Send the full
-   plan plus every file/module it touches in one call — see
-   "Macro-Delegation" below. Antigravity does the actual edit/execution;
-   use a writable/execution tool call, not a read-only analysis one. Start
-   a **new** Antigravity session for this call rather than continuing the
-   Analyze session — see "Session continuity" for why.
+   plan plus every file/module it touches in one `agy_run` call with
+   `mode: "accept-edits"` — see "Macro-Delegation" below. Antigravity does
+   the actual edit/execution; `mode: "accept-edits"` is what makes this the
+   one role allowed to touch files — every other role runs `mode: "plan"`.
+   Start a **new** Antigravity conversation for this call rather than
+   continuing the Analyze session — see "Session continuity" for why.
 3. **Review** (you). Read the resulting diff yourself before it goes
    further. This is your Code Reviewer duty — catch anything you wouldn't
    want a QA/Security pass to have to discover for you, and reject/send
@@ -52,9 +53,11 @@ file assumes you've already read that.
    priority is yours to resolve, not theirs.
 6. **Release notes** (`antigravity`, Release Writer role, Antigravity pin).
    Once a unit is accepted, send the final diff plus the plan to Antigravity
-   to draft the changelog entry / doc update. This is drafting only — you
-   still review and commit it yourself, same as any other Antigravity
-   output. Also a new session, not a continuation of the Coder session.
+   via `agy_run` with `mode: "plan"` to draft the changelog entry / doc
+   update. This is drafting only, and `mode: "plan"` makes that mechanical
+   rather than a matter of asking nicely — you still review and commit it
+   yourself, same as any other Antigravity output. Also a new conversation,
+   not a continuation of the Coder session.
 7. **Learn** (you — non-blocking, no bridge call). Once step 5 (Reconcile)
    confirms final verification passed, load the `learning-curator` skill
    (bundled in this plugin, alongside this one) and let it classify the unit as
@@ -73,9 +76,23 @@ Both bridges have high-capacity context (Antigravity/Gemini: 1M–2M tokens;
 Codex: 128k+ tokens). Package a whole plan plus every file it touches into a
 single high-payload call rather than fragmenting into single-file requests.
 
-Every call to Antigravity must specify `model:` set to the Antigravity pin
-explicitly (do not rely on a default — see `docs/SETUP.md` for why), plus,
-depending on which role it's playing:
+Every call to Antigravity is `agy_run` (or `agy_run_sync` if you're willing
+to block up to its 10-minute cap for an inline result — prefer `agy_run` for
+anything from the Coder role, since that's the payload most likely to run
+long) and must specify:
+
+- `model:` set to the Antigravity pin explicitly (do not rely on the
+  bridge's own default-model setting as anything but a fallback — see
+  `docs/SETUP.md` for why).
+- `mode:` — `"plan"` for every role except Coder, `"accept-edits"` for
+  Coder alone. This is what makes "read-only" a property the tool enforces,
+  not just a convention you ask for in prose.
+- `json_schema:` on any call whose output you'll parse or spot-check
+  structurally (a requirement matrix, a findings table) — this bounds
+  output by shape instead of by character count, so ask for the shape you
+  actually want rather than trusting prose framing alone.
+
+Plus, depending on which role it's playing:
 
 - **Document Analyzer:** every doc/spec/PRD relevant to the unit in one
   call (`cwd` set to project root) and the exact requirement question to
@@ -106,15 +123,18 @@ Every `codex:codex-rescue` call (QA or Security) must specify:
 Each bridge is a separate MCP server process with its own session/thread
 namespace — do not mix them up:
 
-- Antigravity: `follow_up` with the `session_id` the `antigravity` server
-  returned, **but only for follow-ups within the same role**. Analyze,
-  Coder, and Release Writer are unrelated conversations even though they
-  share one server and one model — start a fresh (non-`follow_up`) call
-  when the pipeline moves from one role to the next, so Antigravity's
-  context doesn't drag Document-Analyzer framing into a Coder call or
-  vice versa. Only use `follow_up` to continue the *same* role's work
-  (e.g. Antigravity iterating on its own implementation after a test
-  failure).
+- Antigravity: pass the `conversation_id` a prior `agy_run` call returned,
+  **but only for follow-ups within the same role**. Analyze, Coder, and
+  Release Writer are unrelated conversations even though they share one
+  server and one model — start a fresh call (omit `conversation_id`) when
+  the pipeline moves from one role to the next, so Antigravity's context
+  doesn't drag Document-Analyzer framing into a Coder call or vice versa.
+  Only reuse `conversation_id` to continue the *same* role's work (e.g.
+  Antigravity iterating on its own implementation after a test failure).
+  `agy_run` also offers `continue_latest` as a "resume whatever I last ran"
+  shortcut (mutually exclusive with `conversation_id`) — avoid it here for
+  the same reason: it can silently pick up the wrong role's thread. Name
+  the `conversation_id` explicitly instead of relying on "latest."
 - QA and Security: launched via the `codex:codex-rescue` subagent
   (`openai/codex-plugin-cc` plugin — `Agent` tool,
   `subagent_type: "codex:codex-rescue"`; see `docs/SETUP.md`). Pass
@@ -154,31 +174,35 @@ Codex call, since Codex won't have discovered it on its own.
 
 ## Optional second opinion on your plan
 
-Antigravity also exposes `adversarial_review`. Before handing a
-high-stakes plan to Antigravity for implementation (architecture-level
-change, risky refactor, anything security-sensitive by nature of the
-task, not just the code), you may run `adversarial_review` on the plan
-itself as a pre-implementation sanity check. This is optional and sits
-before step 2 of the pipeline — it does not replace the QA/Security pass
-in step 4, which is mandatory for every unit regardless of stakes.
+Before handing a high-stakes plan to Antigravity for implementation
+(architecture-level change, risky refactor, anything security-sensitive by
+nature of the task, not just the code), you may run the plan itself past
+Antigravity as a pre-implementation sanity check — `agy_run`, `mode:
+"plan"`, framing the prompt explicitly as an adversarial critique request
+("find what's wrong with this plan before it's built," not "review this
+code"). There is no dedicated review tool to reach for here — the critique
+comes from what you ask for in the prompt, same as the QA/Security lens
+framing in two-bridge mode. This is optional and sits before step 2 of the
+pipeline — it does not replace the QA/Security pass in step 4, which is
+mandatory for every unit regardless of stakes.
 
 ## Example delegation prompts
 
-Antigravity `analyze_files` (Document Analyzer):
+Antigravity `agy_run` (Document Analyzer):
 > Ingest `docs/billing-spec.md`, `docs/refund-policy.md`, and the linked
 > PRD under `docs/prd/refund-idempotency.md`. Question: what are the
 > concrete, testable requirements for idempotent refund processing? Output:
 > a requirement matrix — requirement, source `file:line` citation, and any
 > open question the spec doesn't resolve. model: <Antigravity pin>.
-> cwd: /path/to/repo
+> mode: "plan". cwd: /path/to/repo
 
-Antigravity `delegate` (Implementation):
+Antigravity `agy_run` (Implementation):
 > Plan: add idempotency key checking to `post_invoice` in `src/billing/refund.py`
 > per the acceptance criteria below. Touch: `src/billing/refund.py`,
 > `src/common/retry.py`, `tests/billing/test_refund_idempotency.py`.
 > Acceptance criteria: `test_refund_idempotency` passes under concurrent
 > retries; no new ledger entry without a committed invoice row.
-> model: <Antigravity pin>. cwd: /path/to/repo
+> model: <Antigravity pin>. mode: "accept-edits". cwd: /path/to/repo
 
 `codex:codex-rescue` (QA pass — `Agent` tool, `subagent_type:
 "codex:codex-rescue"`, prompt below forwarded verbatim):
@@ -197,12 +221,12 @@ Antigravity `delegate` (Implementation):
 > security impact? Output: severity-ranked findings table with `file:line`
 > citations.
 
-Antigravity `delegate` (Release Writer):
+Antigravity `agy_run` (Release Writer):
 > Diff: <paste accepted diff>. Plan/acceptance criteria it implements:
 > <paste from step 1>. Draft: a changelog entry (one or two lines, user-
 > facing framing) and any doc updates the diff makes stale. Output: the
 > drafted text plus a list of files it should replace/append to — I will
-> review and commit it myself. model: <Antigravity pin>.
+> review and commit it myself. model: <Antigravity pin>. mode: "plan".
 
 ## Parallelism, failures, and verification
 
@@ -212,17 +236,22 @@ Antigravity `delegate` (Release Writer):
   blocking on one before starting the other. They're independent
   `codex:codex-rescue` invocations with no shared state or context between
   them.
-- **On bridge failure** (timeout, `/codex:status` shows the job failed,
-  unusable output): retry once with `--fresh`. On a second failure, do the
-  check yourself (there is no same-role fallback bridge in this pipeline —
-  each role is single-sourced) and record the failure in the progress file
-  so the next session knows that role was skipped for this unit.
+- **On bridge failure:** for Codex, `/codex:status` shows the job failed,
+  timeout, or unusable output — retry once with `--fresh`. For Antigravity,
+  the equivalent is an `agy_run` job whose terminal state is `failed`, a
+  wake reporting `failure_reason` (e.g. `quota_exhausted`, with a reset
+  window in `error`), or unusable output — retry once with a fresh call
+  (no `conversation_id`). Either way: on a second failure, do the check
+  yourself (there is no same-role fallback bridge in this pipeline — each
+  role is single-sourced) and record the failure in the progress file so
+  the next session knows that role was skipped for this unit.
 - **Verification is defined as:** every QA/Security prompt demands
   `file:line` citations; you spot-check one or two of them before recording
   the result. Claims without citations get recorded as *unverified* and
-  must not be the sole basis for shipping a unit. Remember Antigravity
-  truncates output (~50k chars) — always request structured findings, never
-  content dumps.
+  must not be the sole basis for shipping a unit. Antigravity has no fixed
+  output-size cap here — use `json_schema` to force the shape of findings
+  (a structured pass/fail table, not prose you hope stays on-format), same
+  intent the old character-count truncation served, enforced differently.
 
 ## Orchestration rules (project-specific, layered on top of the above)
 
@@ -235,7 +264,8 @@ Antigravity `delegate` (Release Writer):
   progress file (see `templates/review-topic-template.md`) with: which step,
   which role (spell out the Antigravity role — Analyzer/Coder/Release
   Writer — since all three share one server in the tally), the returned
-  session/thread id, and the verified outcome. Do this before starting the
+  `job_id` (and `conversation_id` if a same-role follow-up is expected), and
+  the verified outcome. Do this before starting the
   next unit of work. Step 7 (Learn) gets the same treatment — see
   `learning-curator/SKILL.md`'s "Checkpoint entry" for what to record; a
   NOOP outcome still gets a one-line entry.

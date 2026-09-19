@@ -7,23 +7,38 @@ material in `SKILL.md`; everything else in `SKILL.md` (steps 0–3, 6,
 Macro-Delegation for Analyzer/Coder/Release Writer, Shared skills, the
 optional second opinion, Orchestration rules) applies unchanged.
 
-## Step 4 replacement — QA + Security lenses, sequentially
+## Step 4 replacement — QA + Security lenses, backgrounded and parallel
 
-**QA + Security lenses, sequentially** (`antigravity`, `adversarial_review`).
-Antigravity is one server/process — these two calls cannot run as two
-independently-backgrounded jobs the way the `codex:codex-rescue` QA/Security
-calls do in three-bridge mode. Run QA framing first, then Security
-framing, each as its own fresh session (not a `follow_up` of each other or of
-the Coder session) so one framing doesn't bias the other's findings.
+**QA + Security lenses** (`antigravity`, `agy_run`). Launch both as
+backgrounded `agy_run` calls, one right after the other — each returns its
+own `job_id` immediately, so you don't wait for one before starting the
+other, the same independence-of-execution property three-bridge mode gets
+from two separate `codex:codex-rescue` calls. This is new: the old
+blocking bridge forced these to run sequentially since one process
+couldn't hold two calls open at once. Each call is `mode: "plan"` (read-only,
+mechanically enforced) and its own fresh conversation (no
+`conversation_id` shared with the other, or with the Coder session), so one
+framing doesn't bias the other's findings.
 
-## Model exception
+## Model pins (two-bridge lenses)
 
-Every other Antigravity call still specifies `model:` set to the Antigravity
-pin explicitly. The QA and Security lens calls are the one exception: they use
-`adversarial_review` and let its own model chain apply (Gemini 3.1 Pro high →
-Claude Opus 4.6 → Flash) — do not force the Antigravity pin onto those two
-calls, that would defeat the point of using a different model chain than the
-Coder role.
+Every other Antigravity call specifies `model:` set to the Antigravity pin.
+The QA and Security lens calls are the exception — each gets its own pin,
+added to your project's `CLAUDE.md` "Model pins" table:
+
+| Pin | Example value | Applies to |
+|---|---|---|
+| QA lens pin | `gemini-3.1-pro-high` | Every two-bridge QA lens call |
+| Security lens pin | `claude-opus-4-6-thinking` | Every two-bridge Security lens call |
+
+Verify both IDs actually appear in your own `agy_run`'s `list_models`
+output before relying on them — model availability is per-account, and the
+values above are examples from one account, not a guarantee about yours.
+Both pins must differ from the Antigravity pin, and from each other.
+Picking genuinely different model families (not just different sizes of
+the same family) is what gives the two lenses independent blind spots —
+see "Why this is weaker" below for why that distinction matters and what
+it doesn't fix.
 
 Every QA/Security lens call must specify:
 1. The diff plus the original plan/acceptance criteria it's being checked
@@ -36,30 +51,38 @@ Every QA/Security lens call must specify:
 
 ## Example delegation prompts (QA/Security lenses)
 
-Antigravity `adversarial_review` (QA lens):
+Antigravity `agy_run` (QA lens):
 > Diff: <paste diff>. Original plan/acceptance criteria: <paste from step 1>.
 > Framing: you are a QA engineer. Question: does this satisfy the
 > acceptance criteria? What edge cases or regressions does it miss? Output:
 > pass/fail table with `file:line` citations for each finding.
+> model: <QA lens pin>. mode: "plan".
 
-Antigravity `adversarial_review` (Security lens):
+Antigravity `agy_run` (Security lens):
 > Diff: <paste diff>. Framing: you are a security engineer. Question:
 > what's exploitable here — injection, auth bypass, unsafe
 > deserialization, secret handling, race conditions with security impact?
 > Output: severity-ranked findings table with `file:line` citations.
+> model: <Security lens pin>. mode: "plan".
 
 (Document Analyzer, Coder, and Release Writer prompts are identical to
 `SKILL.md`'s examples.)
 
 ## Parallelism, failures, and verification — deltas
 
-- **QA and Security lenses run sequentially**, not in parallel — they're
-  the same server. Don't fire them concurrently; Antigravity's own session
-  handling isn't built for that and you'd risk cross-talk between the two
-  framings.
-- **On bridge failure** (timeout, disconnect, unusable output): retry once.
-  On a second failure, do the check yourself — there is no fallback bridge
-  in two-bridge mode at all — and record the failure in the progress file.
+- **QA and Security lenses now run as backgrounded, concurrent `agy_run`
+  jobs** (see "Step 4 replacement" above) — the same independence of
+  execution three-bridge mode gets from two separate `codex:codex-rescue`
+  calls. They still share one underlying `agy` account and CLI process
+  family with the Coder role — if that account's quota is exhausted or the
+  CLI itself is unreachable, all three roles fail together, unlike
+  three-bridge mode where Codex runs on entirely separate vendor
+  infrastructure. See "Why this is weaker" below.
+- **On bridge failure** (an `agy_run` job whose terminal state is `failed`,
+  a wake reporting `failure_reason`, or unusable output): retry once with a
+  fresh call (no `conversation_id`). On a second failure, do the check
+  yourself — there is no fallback bridge in two-bridge mode at all — and
+  record the failure in the progress file.
 - Verification bar (structured findings, `file:line` citations, spot-check
   before recording) is unchanged from `SKILL.md`.
 
