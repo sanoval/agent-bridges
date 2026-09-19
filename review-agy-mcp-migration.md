@@ -246,15 +246,29 @@ sebagai uji akhir.
 ---
 
 ## Belum dikerjakan (lanjutan sesi berikutnya)
-- [ ] **Fase 2** — tulis ulang kontrak payload: tabel pemetaan 6 tool lama →
+- [x] **Fase 2** — tulis ulang kontrak payload: tabel pemetaan 6 tool lama →
       `agy_run`, `follow_up(session_id)` → `conversation_id`, `mode: "plan"`
       wajib untuk Analyzer/Release Writer/lens, `json_schema` menggantikan
-      `AGY_MAX_OUTPUT_CHARS`, fallback chain jadi retry eksplisit.
-- [ ] **Fase 2** — revisi `CLAUDE-two-bridge-overlay.md:21-37`: klaim *"both
-      lenses come from the same vendor's family"* tidak lagi benar setelah
-      Security lens pindah ke `claude-opus-4-6-thinking`.
-- [ ] **Fase 2** — hapus bagian "Model exception" di `two-bridge.md:19-26`;
-      tidak ada lagi chain yang perlu dilindungi.
+      `AGY_MAX_OUTPUT_CHARS`. Selesai di `SKILL.md`, `two-bridge.md`.
+- [x] **Fase 2** — revisi `CLAUDE-two-bridge-overlay.md` "Why this is
+      weaker": klaim *"same vendor family"* diganti — pin eksplisit bisa
+      memberi independensi model asal dipilih beda keluarga, tapi risiko
+      infrastruktur bersama (satu akun/CLI `agy`) tetap ada dan itu yang
+      dijelaskan ulang sebagai kelemahan sisa.
+- [x] **Fase 2** — bagian "Model exception" di `two-bridge.md` diganti
+      "Model pins (two-bridge lenses)" dengan tabel pin eksplisit; chain
+      `adversarial_review` tidak lagi direferensikan di mana pun.
+- [x] **Fase 2 (bonus, tidak direncanakan semula)** — QA/Security lens
+      sekarang dijelaskan berjalan **paralel** (backgrounded, concurrent
+      `agy_run`), bukan sekuensial — closes gap nyata vs three-bridge mode,
+      ditemukan berkat Uji 3 Fase 1 yang membuktikan job konkuren bekerja.
+- [ ] **Fase 2.5 (belum dikerjakan)** — belum ada verifikasi bahwa isi
+      SKILL.md/two-bridge.md/overlay hasil tulis ulang ini benar-benar
+      dijalankan sebagai unit kerja nyata (baru diperiksa lewat pembacaan,
+      bukan dipraktikkan). Rekomendasi: jalankan satu unit lengkap
+      (Analyze→Coder→Review→QA lens+Security lens paralel→Release) di
+      project pilot memakai instruksi baru ini persis apa adanya, sebelum
+      Fase 3.
 - [ ] **Fase 3** — flip default: `.mcp.json` → `agy-mcp`, `hooks.json` +=
       `PostToolUse` (matcher `mcp__antigravity__agy_run(_sync)?`), bump
       `plugin.json` **dan** `marketplace.json` ke 0.3.0, hapus baris "Status"
