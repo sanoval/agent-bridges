@@ -32,15 +32,16 @@ input or no ship step yet. Delete whichever mode's line doesn't apply.)
 <what exists in code, with file:line or module references>
 
 ### Delegasi (jika ada)
-<role: Analyzer / Coder / Release Writer (semua antigravity, tapi session
-terpisah per role — jangan follow_up lintas role); lalu, three-bridge mode:
-QA / Security (keduanya subagent `codex:codex-rescue`, dibedakan lewat
-`--model` pin + framing per call, task id dari `/codex:status` — jangan
-`--resume` lintas role, selalu `--fresh` kecuali sengaja lanjutkan role yang
-sama); two-bridge mode: QA lens / Security lens (keduanya antigravity
-adversarial_review, session terpisah, jangan follow_up satu ke lainnya);
-hasil singkat — tandai setiap klaim VERIFIED (sitasi file:line sudah
-di-spot-check) atau UNVERIFIED>
+<role: Analyzer / Coder / Release Writer (semua antigravity via `agy_run`,
+tapi conversation terpisah per role — jangan pakai `conversation_id` lintas
+role); lalu, three-bridge mode: QA / Security (keduanya subagent
+`codex:codex-rescue`, dibedakan lewat `--model` pin + framing per call,
+task id dari `/codex:status` — jangan `--resume` lintas role, selalu
+`--fresh` kecuali sengaja lanjutkan role yang sama); two-bridge mode: QA
+lens / Security lens (keduanya `agy_run` antigravity, pin berbeda per
+lens, backgrounded & bisa paralel, conversation terpisah, jangan
+`conversation_id` satu ke lainnya); hasil singkat — tandai setiap klaim
+VERIFIED (sitasi file:line sudah di-spot-check) atau UNVERIFIED>
 
 Referensi: skill `delegation-pipeline` dari plugin `agent-bridges` (semua
 mode; lihat juga `two-bridge.md` di dalamnya untuk two-bridge mode).

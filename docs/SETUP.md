@@ -87,9 +87,15 @@ self-heal on update:
 
 ### Remaining steps (still manual)
 
-1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
-   **Three-bridge mode only:** `codex` CLI installed and authenticated
-   (`codex login`), Node.js 18.18+.
+1. Prerequisites: `agy` CLI installed and authenticated (1.1.15 or newer —
+   a hard floor for the `agy-mcp` bridge below it, not a recommendation),
+   and the `agy-mcp` binary itself installed separately (it is not bundled
+   with this plugin): `brew install tphakala/tap/agy-mcp` or
+   `go install github.com/tphakala/agy-mcp/v2@latest`. Verify with
+   `agy-mcp --help` (there is no `-v`/`--version` flag — the binary
+   printing its own usage on an unrecognized flag is expected, not a
+   sign it's missing). **Three-bridge mode only:** `codex` CLI installed
+   and authenticated (`codex login`), Node.js 18.18+.
 2. **Three-bridge mode only** — install the
    [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
    plugin (separate from `agent-bridges` — it's what actually provides
@@ -142,18 +148,27 @@ self-heal on update:
 
 - **Cold start:** Antigravity's first call takes ~40–50s; later calls in
   the same session are faster.
-- **Timeouts:** override Antigravity's per-tool budgets via
-  `AGY_TIMEOUT_<TOOL_NAME>` (or `AGY_TIMEOUT` globally). Keep the MCP
-  client timeout ≥ that budget.
-- **Output cap:** Antigravity truncates at `AGY_MAX_OUTPUT_CHARS` (default
-  50,000) — ask for dense, structured output (e.g. a pass/fail table).
+- **Delegation calls don't block.** `agy_run` returns a `job_id`
+  immediately; you're woken via the plugin's `PostToolUse` hook when the
+  job lands (see `docs/MIGRATION.md`, "Completion wake"). There is no
+  timeout ceiling to race against the way there was under `agy-bridge` —
+  a slow job is just a slow job, not a hang. If a job runs long, the wake
+  still fires (reporting "still running") rather than being lost silently.
+- **Output shape:** there is no fixed truncation cap — use `json_schema`
+  on any Antigravity call whose output you'll parse or spot-check
+  structurally (a requirement matrix, a findings table), rather than
+  relying on prose framing alone.
 - **(Three-bridge)** QA and Security calls both go through the same
   `codex:codex-rescue` subagent — a `/codex:status`/`/codex:result` task id
   from one call is meaningless for the other; always pass `--fresh` on a
   QA/Security call rather than letting it offer to resume the other role's
   thread.
-- **(Two-bridge)** QA and Security lenses run sequentially, not in
-  parallel — both are `adversarial_review` calls on the same server.
+- **(Two-bridge)** QA and Security lenses now run as backgrounded,
+  concurrent `agy_run` jobs (each its own `job_id`) — you don't wait for
+  one before starting the other, same as three-bridge mode's two
+  `codex:codex-rescue` calls. They still share one `agy` account/CLI with
+  the Coder role — see `templates/CLAUDE-two-bridge-overlay.md`, "Why this
+  is weaker."
 - **Macro-delegation:** send the full plan and every touched file to
   Antigravity in one call, and the full diff plus acceptance criteria to
   QA/Security in one call each, rather than fragmenting into single-file
@@ -161,17 +176,22 @@ self-heal on update:
 
 ## Verifying it works
 
-After restarting Claude Code, run `claude mcp list`.
+After restarting Claude Code, run `claude mcp list` — confirm `antigravity`
+shows the `agy-mcp` command, not `npx ... agy-bridge` (see the pre-0.3.0
+upgrade note in the README if it still shows the old command after
+updating).
 
 - **Three-bridge mode:** `antigravity` connected, and `codex:codex-rescue`
-  runnable (see step 3 above). An Antigravity call returns a `session_id`;
-  a QA or Security `codex:codex-rescue` call returns a task id you poll via
-  `/codex:status`/`/codex:result` — confirm a QA call and a Security call
-  on the same diff come back as independent task ids with different
-  findings (see `docs/ARCHITECTURE.md`, "Why a plugin, not an MCP server").
+  runnable (see step 3 above). An Antigravity `agy_run` call returns a
+  `job_id`; a QA or Security `codex:codex-rescue` call returns a task id
+  you poll via `/codex:status`/`/codex:result` — confirm a QA call and a
+  Security call on the same diff come back as independent ids with
+  different findings (see `docs/ARCHITECTURE.md`, "Why a plugin, not an
+  MCP server").
 - **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one
-  `adversarial_review` call framed as QA and one framed as Security —
-  confirm they return different `session_id` values.
+  `agy_run` call framed as QA (with the QA lens pin) and one framed as
+  Security (with the Security lens pin) — confirm they return different
+  `job_id` values and don't need to wait on each other.
 - **Gate hook (plugin step 0):** ask Claude Code to `Edit`/`Write` an
   application-code file directly. A permission prompt quoting the Gate
   rule should appear first. If not, confirm the plugin is enabled for this

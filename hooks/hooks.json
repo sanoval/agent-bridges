@@ -11,6 +11,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__antigravity__agy_run(_sync)?",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agy-mcp hook-wait",
+            "asyncRewake": true,
+            "timeout": 3700
+          }
+        ]
+      }
     ]
   }
 }

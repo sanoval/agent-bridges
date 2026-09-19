@@ -5,7 +5,7 @@ delegation bridges, each with fixed jobs:
 
 | Role | Bridge |
 |---|---|
-| Document Analyzer, Coder/Executor, Release-Changelog Writer | **Antigravity** (`agy-bridge` MCP server) |
+| Document Analyzer, Coder/Executor, Release-Changelog Writer | **Antigravity** (`agy-mcp` MCP server — async jobs, not blocking calls) |
 | QA Engineer, Security Engineer | **Codex** (`codex:codex-rescue` subagent, via the separately-installed [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin) |
 | Planner and Code Reviewer, final say on every bridge output | **Claude Code** |
 
@@ -54,6 +54,18 @@ Codex MCP server)?** Updating alone won't clear the old `codex-qa`/
 `~/.agents/skills/` symlinks, or your own already-copied `CLAUDE.md` —
 see `docs/SETUP.md` step 0c.
 
+**Upgrading from a pre-0.3.0 install (the Antigravity bridge used to be
+`agy-bridge`, a blocking call with a timeout ceiling)?** You need the
+`agy-mcp` binary installed separately (it's not bundled — see
+`docs/SETUP.md` step 1), and updating the plugin alone may not be enough
+to pick up the new `antigravity` server command: Claude Code caches each
+project's *resolved* MCP server per name in `~/.claude.json` and doesn't
+always re-resolve it just because `.mcp.json` changed. If `claude mcp
+list` still shows `antigravity` running `npx ... agy-bridge` after
+updating, see `docs/MIGRATION.md` for the fix and the full behavior
+change (`agy_run` returns a `job_id` immediately instead of blocking —
+delegation calls no longer time out, they wake you when done).
+
 **Three-bridge mode (Codex QA/Security) is a separate install**, not part
 of this plugin: it's OpenAI's own
 [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
@@ -86,11 +98,11 @@ learning), and a narrated end-to-end example.
   mode). QA and Security each get their own model pin, passed per call.
 - **Only Claude Code + Antigravity?** Copy `templates/CLAUDE.md` and
   append `templates/CLAUDE-two-bridge-overlay.md` (two-bridge mode). QA
-  and Security fold into two separately-framed Antigravity
-  `adversarial_review` passes instead of dedicated bridges — weaker
-  independence (one vendor's model family for both lenses); the overlay
-  explains what that costs and why your own Review step has to work
-  harder.
+  and Security fold into two separately-framed, separately-pinned
+  Antigravity `agy_run` calls instead of dedicated bridges — the overlay
+  explains what's still weaker than three-bridge mode (shared account/CLI
+  infrastructure with the Coder role) even with independent model pins,
+  and why your own Review step has to work harder.
 
 ## Acknowledgements
 
@@ -98,9 +110,12 @@ This is an original configuration/template repository — not a fork, no
 source code from its MCP dependencies included.
 
 The Antigravity integration uses
+[agy-mcp](https://github.com/tphakala/agy-mcp) by tphakala as an external
+MCP dependency (registered locally as `antigravity`), distributed under
+the MIT License. Versions before 0.3.0 used
 [agy-bridge](https://github.com/sshahzaiib/agy-bridge) by Shahzaib Akram
-as an external MCP dependency (registered locally as `antigravity`),
-distributed under the MIT License.
+instead (same MIT license) — see `docs/MIGRATION.md` for why this project
+moved off it and how to roll back if needed.
 
 The Codex QA/Security integration (three-bridge mode) uses OpenAI's own
 [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin as an
