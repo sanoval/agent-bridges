@@ -48,6 +48,12 @@ This registers the `antigravity` MCP server, the `delegation-pipeline` and
 current (`/plugin install agent-bridges@agent-bridges --update` to force a
 check).
 
+**Upgrading from a pre-0.2.0 install (this plugin used to run its own
+Codex MCP server)?** Updating alone won't clear the old `codex-qa`/
+`codex-security` entries cached in `~/.claude.json`, your stale
+`~/.agents/skills/` symlinks, or your own already-copied `CLAUDE.md` —
+see `docs/SETUP.md` step 0c.
+
 **Three-bridge mode (Codex QA/Security) is a separate install**, not part
 of this plugin: it's OpenAI's own
 [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)

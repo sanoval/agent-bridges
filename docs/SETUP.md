@@ -47,6 +47,44 @@ nothing here is a regression for Codex specifically — but don't expect a
 symlink to fix it, because there's no discovery mechanism on the other end
 to point at.
 
+### 0c. Upgrading from an install that predates `openai/codex-plugin-cc`
+
+If you installed `agent-bridges` before it dropped its own Codex MCP
+server (versions before 0.2.0 — see `docs/ARCHITECTURE.md`, "Why a
+plugin, not an MCP server"), updating the plugin alone is **not**
+enough. Three things are cached outside the plugin and none of them
+self-heal on update:
+
+1. **`~/.claude.json` still lists the old `codex-qa`/`codex-security`
+   MCP servers for this project**, and they show up as **failed** at
+   session start. Claude Code caches each project's *resolved* MCP
+   servers into `~/.claude.json` the first time it reads `.mcp.json`;
+   it does not prune entries that later disappear from `.mcp.json`. The
+   commands those entries ran (`codex --profile qa mcp-server` /
+   `codex --profile security mcp-server`) no longer exist in current
+   Codex CLI versions, hence the failures. Fix: open `~/.claude.json`,
+   find this project's entry, delete the `codex-qa` and `codex-security`
+   keys under its `mcpServers` (leave `antigravity`), save, and restart
+   Claude Code. (`claude mcp remove codex-qa` / `claude mcp remove
+   codex-security` from the project root does the same thing without
+   hand-editing JSON.)
+2. **`~/.agents/skills/delegation-pipeline/SKILL.md` is stale and still
+   describes the two MCP servers.** That symlink (step 0b) points into
+   a *versioned* plugin cache directory
+   (`~/.claude/plugins/cache/agent-bridges/agent-bridges/<old-version>/…`);
+   updating the plugin adds a new version directory but doesn't repoint
+   symlinks into it, and the old one isn't swept for ~14 days. Re-run
+   the step 0b snippet after every update — it's idempotent (`ln -sfn`
+   just repoints the link to whatever version is newest).
+3. **Your project/global `CLAUDE.md` still names `codex-qa`/
+   `codex-security`.** You copied `templates/CLAUDE.md` into your own
+   `CLAUDE.md` at some point (step 4 below) — that's *your* copy, and
+   the plugin update doesn't touch it. The "Roles" table, "Model pins"
+   table, and Security-pin row now describe the `codex:codex-rescue`
+   subagent instead, distinguished by `--model`/framing rather than by
+   separate servers. Re-diff your `CLAUDE.md` against the current
+   `templates/CLAUDE.md` and re-merge those sections.
+
 ### Remaining steps (still manual)
 
 1. Prerequisites: `agy` CLI installed and authenticated; Node + npx.
