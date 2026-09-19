@@ -138,18 +138,39 @@ lenses would silently fall back to the Coder's own model — Antigravity
 reviewing its own work with no model independence at all, which removes the
 last thing that made two-bridge mode worth running.
 
-Replace it with two explicit pins. In your project's `CLAUDE.md` "Model
-pins" table, add:
+Replace it with two explicit pins — and take the opportunity to fix
+something the old tool could not do.
+
+`adversarial_review` had exactly one preference chain, so both lenses
+always resolved to the *same* model. That is the weakness the overlay
+admits to: you got a reviewer that wasn't the Coder, but you did not get
+two reviewers with independent blind spots. Explicit pins let you assign a
+different model per lens, so the migration can restore that second
+property instead of merely preserving the first.
+
+In your project's `CLAUDE.md` "Model pins" table, add:
 
 | Pin | Value | Applies to |
 |---|---|---|
-| QA lens pin | *(an ID from `list_models`)* | Every two-bridge QA lens call |
-| Security lens pin | *(a **different** ID from `list_models`)* | Every two-bridge Security lens call |
+| QA lens pin | `gemini-3.1-pro-high` | Every two-bridge QA lens call |
+| Security lens pin | `claude-opus-4-6-thinking` | Every two-bridge Security lens call |
 
-Both must differ from the Antigravity pin, and from each other. Picking two
-IDs from the same family is weaker than the old chain but still better than
-reusing the Coder's model; the overlay's "why this is weaker" section
-applies with more force than before, so read it again.
+Verify both IDs appear in your own `list_models` output before relying on
+them — model availability is per-account, and these are the IDs from one
+account, not a guarantee about yours.
+
+The split is deliberate. QA claims are checkable against ground truth — a
+test either passes or it doesn't — so model identity matters less there,
+and `gemini-3.1-pro-high` keeps continuity with what the QA lens has been
+running on all along. Security claims are the opposite: you cannot run a
+test that proves "not exploitable," so the finding rests on the model's
+judgment alone. Put the most independent, strongest-reasoning model you
+have on the lens whose output you can least verify — and on an account
+where the Coder runs a Google model, an Anthropic one is the genuinely
+different family.
+
+Whatever you choose, the rule is: both pins differ from the Antigravity
+pin, and from each other.
 
 ### 6. Verify end to end
 
