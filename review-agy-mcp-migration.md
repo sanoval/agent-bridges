@@ -206,7 +206,7 @@ menerapkannya.
 ### Yang direkam di sini
 | # | Klaim | Lulus? | Bukti / catatan |
 |---|---|---|---|
-| 1 | `mode: "plan"` read-only | <isi> | <isi> |
+| 1 | `mode: "plan"` read-only | **LULUS** | Diminta review README, agy-mcp mengembalikan plan/usulan tanpa menyentuh file — dikonfirmasi tidak ada perubahan tercatat |
 | 2 | Hook wake berfungsi | <isi> | <isi> |
 | 3 | Job konkuren | <isi> | <isi> |
 | — | Durasi call Coder via `agy-mcp` | — | <isi — bandingkan dengan baseline Unit 0> |
