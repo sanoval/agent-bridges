@@ -62,8 +62,8 @@ lihat `docs/MIGRATION.md` → Rollback), lalu hapus entri tersebut.
 ### Yang direkam di sini
 | Item | Nilai |
 |---|---|
-| `agy --version` | <isi> |
-| Duplikat `antigravity` di user scope? | <ya/tidak — jika ya, isi JSON-nya disimpan di mana> |
+| `agy --version` | 1.2.7 — di atas floor 1.1.15, lolos |
+| Duplikat `antigravity` di user scope? | <isi> |
 | Jumlah entri `antigravity` setelah dibersihkan | <isi — harus 1> |
 | Durasi call Coder yang **berhasil**, kira-kira | <isi> |
 | Dari ~5 delegasi terakhir, berapa yang kena ~600s | <isi> |
@@ -71,9 +71,11 @@ lihat `docs/MIGRATION.md` → Rollback), lalu hapus entri tersebut.
 ### Gap list
 | # | Gap | Severity | Catatan |
 |---|-----|----------|---------|
+| 1 | Duplikat `antigravity` belum dicek, baseline durasi/rasio-timeout belum dicatat | Medium | Tidak menghalangi instalasi binary `agy-mcp` (Unit 1 langkah 1), tapi perbandingan performa di Unit 1 tidak bisa disimpulkan valid tanpa ini |
 
 ### Kesimpulan
-<isi setelah dijalankan>
+IN PROGRESS — versi CLI lolos, lanjut ke instalasi binary `agy-mcp` (Unit 1
+langkah 1) sambil item lain di unit ini masih terbuka.
 
 ---
 
