@@ -192,6 +192,18 @@ a diff. You will be woken when it lands. This is the intended behavior, not
 a failure — resist the reflex to re-fire the call because "nothing
 happened."
 
+**"No longer hangs" is not the same claim as "faster."** The underlying
+model call takes however long it takes — what changed is that you're no
+longer sitting on one blocking request racing a 600-second ceiling.
+Resist reporting this migration as a speed improvement unless you actually
+measured wall-clock time on the same kind of task before and after;
+absent that measurement, the honest claim is "stopped timing out," not
+"got faster." The one place a real speed difference is plausible is
+process startup: `agy-bridge` is resolved fresh over `npx` on every
+launch, `agy-mcp` is a pre-compiled binary already on disk — but that's
+milliseconds of cold-start, not the minutes a hung `delegate` call used to
+cost you.
+
 **Failures are now explicit, and that is the point.** Quota exhaustion
 comes back as `failure_reason: "quota_exhausted"` with the reset window,
 immediately, instead of being silently absorbed by a fallback chain that
