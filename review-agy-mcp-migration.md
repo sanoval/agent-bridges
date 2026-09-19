@@ -98,9 +98,26 @@ berhenti, jangan lanjut ke Fase 2.
 | 2 | Hook wake benar-benar membangunkan Claude Code | Dapat pesan satu baris berisi `job_id` tanpa polling manual |
 | 3 | Dua job bisa jalan konkuren | Dua `job_id` berbeda aktif bersamaan, hasil tidak tertukar |
 
+### Catatan verifikasi binary (sebelum langkah di bawah)
+
+`agy-mcp` v2.6.1 (dari `brew install tphakala/tap/agy-mcp`) terpasang di
+`/opt/homebrew/bin/agy-mcp`. Sempat muncul kekhawatiran `hook-wait` tidak ada
+(WebFetch sebelumnya salah meringkas 10 release notes terakhir sebagai
+"tidak menyebut hook-wait/PostToolUse" — itu ringkasan yang keliru, bukan
+fakta rilis). README mentah `main` branch mendokumentasikan `hook-wait`
+secara rinci (baris 201-243). Uji manual:
+- `agy-mcp wait-job -h` → tampil help text normal, subcommand-dispatch jalan.
+- `agy-mcp hook-wait -h` → kosong, exit code `0`. Konsisten dengan desain
+  yang didokumentasikan ("reads PostToolUse payload from stdin... on any
+  internal error exits 0 silently"), **bukan** tanda command tidak ada
+  (yang akan exit 127). Tidak bisa diverifikasi lebih jauh lewat pemanggilan
+  manual — README eksplisit bilang "not useful to invoke by hand". Klaim #2
+  di bawah baru benar-benar teruji lewat call `agy_run` sungguhan.
+
 ### Langkah (dijalankan di mesin lokal)
 
-1. Pasang binary:
+1. Pasang binary — **sudah selesai**: `agy-mcp` v2.6.1 di
+   `/opt/homebrew/bin/agy-mcp`.
    ```bash
    brew install tphakala/tap/agy-mcp   # atau: go install github.com/tphakala/agy-mcp/v2@latest
    agy-mcp --version && which agy-mcp
