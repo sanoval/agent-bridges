@@ -34,9 +34,10 @@ input or no ship step yet. Delete whichever mode's line doesn't apply.)
 ### Delegasi (jika ada)
 <role: Analyzer / Coder / Release Writer (semua antigravity via `agy_run`,
 tapi conversation terpisah per role — jangan pakai `conversation_id` lintas
-role); lalu, three-bridge mode: QA / Security (keduanya subagent
-`codex:codex-rescue`, dibedakan lewat `--model` pin + framing per call,
-task id dari `/codex:status` — jangan `--resume` lintas role, selalu
+role); lalu, three-bridge mode: QA / Security (keduanya `codex-companion.mjs
+task`, dipanggil langsung lewat `Bash` — bukan subagent `codex:codex-rescue`
+— dibedakan lewat `--model` pin + framing per call, job id dari
+`codex-companion.mjs status` — jangan `--resume-last` lintas role, selalu
 `--fresh` kecuali sengaja lanjutkan role yang sama); two-bridge mode: QA
 lens / Security lens (keduanya `agy_run` antigravity, pin berbeda per
 lens, backgrounded & bisa paralel, conversation terpisah, jangan

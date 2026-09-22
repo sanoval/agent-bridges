@@ -12,7 +12,7 @@ assumes `claude mcp list` already shows the bridges connected.
 ## The short version
 
 You talk to Claude Code, same as always. You never call `antigravity` or
-`codex:codex-rescue` yourself — Claude Code does, as the
+Codex's `codex-companion.mjs` yourself — Claude Code does, as the
 Planner/Reviewer role in `templates/CLAUDE.md`. Your job is to give it a
 unit of work and then do the two things only you can do: approve the Gate
 prompt when it asks, and read the diff/findings it hands back before
@@ -34,9 +34,9 @@ and runs the numbered pipeline from `SKILL.md`:
    that actually writes code.
 4. **Review** — Claude Code reads the resulting diff before anything else
    sees it.
-5. **QA + Security** — each sent to the `codex:codex-rescue` subagent as
-   its own background job (or two backgrounded `agy_run` lens calls on
-   Antigravity, in two-bridge mode).
+5. **QA + Security** — each run as its own background `codex-companion.mjs
+   task` job, called directly by Claude Code via `Bash` (or two
+   backgrounded `agy_run` lens calls on Antigravity, in two-bridge mode).
 6. **Reconcile** — findings get fixed or dispatched back to Antigravity.
 7. **Release notes** — Antigravity drafts a changelog entry once the unit
    ships; you still review and commit it.
@@ -94,7 +94,7 @@ you:  looks right, go
 claude: → Implement via Antigravity (Coder)
         [Gate prompt fires if Claude Code's own tools try to touch the diff directly]
 you:  approve/deny based on which exception, if any, applies
-claude: → reviews the diff → launches codex:codex-rescue as QA (background),
+claude: → reviews the diff → runs codex-companion.mjs task as QA (background),
         then again as Security (background), polls both
         → reconciles findings, fixes what's flagged
         → checkpoints review-<topic>.md

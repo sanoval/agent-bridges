@@ -17,20 +17,26 @@ For "how do I install/set this up," see the main [README](../README.md) and
   background, and a `PostToolUse` hook wakes Claude Code when the job
   lands — there is no blocking call sitting on a timeout ceiling (see
   `docs/MIGRATION.md` for why that distinction mattered enough to change
-  bridges over). Codex is different: QA and Security both run through the
-  `codex:codex-rescue` subagent, provided by the separately-installed
+  bridges over). Codex is different: QA and Security both run through
+  `codex-companion.mjs task`, a script provided by the separately-installed
   `openai/codex-plugin-cc` plugin (see "Why a plugin, not an MCP server"
-  and `docs/SETUP.md`) — invoked via the `Agent` tool (`subagent_type:
-  "codex:codex-rescue"`), not an MCP `tools/call`. Both QA and Security
-  drive the *same* subagent, the same local `codex` binary and app-server,
-  distinguished only by the `--model` pin and framing text passed in the
-  prompt — not two separate processes.
+  and `docs/SETUP.md`) — invoked directly via the `Bash` tool
+  (`node codex-companion.mjs task ...`), not through that plugin's
+  `codex:codex-rescue` subagent or its `/codex:*` slash commands (see
+  `skills/delegation-pipeline/SKILL.md`, "Why direct Bash, not the
+  subagent," for why: the subagent is itself a Sonnet-run wrapper around
+  the same script, and its read-only guarantee depends on the wrapper
+  reading your prompt correctly rather than on a flag). Both QA and
+  Security drive the *same* script, the same local `codex` binary and
+  app-server, distinguished only by the `--model` pin and framing text
+  passed in the prompt — not two separate processes.
 - **Session continuity.** Antigravity's `agy_run` accepts a
   `conversation_id` from a prior call to continue that same conversation.
-  `codex:codex-rescue` calls are backgrounded jobs tracked by task id
-  (`/codex:status`, `/codex:result`) — QA's task id and Security's are
-  unrelated. It also supports resuming its own last thread (`--resume`),
-  but a QA/Security call should almost always pass `--fresh` instead (see
+  `codex-companion.mjs task` calls are backgrounded jobs tracked by job id
+  (`node codex-companion.mjs status <job-id>`, then `result <job-id>`) —
+  QA's job id and Security's are unrelated. It also supports resuming its
+  own last thread (`--resume-last`), but a QA/Security call should almost
+  always pass `--fresh` (omit `--resume-last`) instead (see
   `skills/delegation-pipeline/SKILL.md`, "Session continuity") so one
   role's framing never leaks into the other's context — the same
   discipline `agy_run`'s `conversation_id` needs across Antigravity's own
@@ -46,14 +52,17 @@ only ships `codex mcp` (Codex as an MCP *client*, opposite direction) and
 `codex app-server` (Codex's own JSON-RPC protocol, not MCP). Rather than
 hand-roll a replacement bridge around one-shot `codex exec`, this project
 uses OpenAI's own [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
-plugin, which wraps the real `codex app-server` and ships a
-`codex:codex-rescue` subagent plus `/codex:review`, `/codex:status`,
-`/codex:result`, etc. The tradeoff versus the old MCP-server design: no
-resumable `threadId` (a follow-up is a fresh, fully self-contained call —
-see "Session continuity" above), and QA/Security no longer get their own
-persistent server process each — both share one subagent, differentiated
-per call by `--model` and prompt framing rather than by which server you
-called.
+plugin, which wraps the real `codex app-server` and ships
+`scripts/codex-companion.mjs` (the underlying task runner) plus a
+`codex:codex-rescue` subagent and `/codex:review`, `/codex:status`,
+`/codex:result`, etc. as convenience wrappers around it. This pipeline
+calls `codex-companion.mjs` directly rather than going through the
+subagent or slash commands — see the "Session continuity" bullet above.
+The tradeoff versus the old MCP-server design: no resumable `threadId` (a
+follow-up is a fresh, fully self-contained call — see "Session continuity"
+above), and QA/Security no longer get their own persistent server process
+each — both share one script/binary, differentiated per call by `--model`
+and prompt framing rather than by which server you called.
 
 ## Repo layout
 
@@ -164,14 +173,15 @@ that:
   background jobs once Claude Code's own review pass is done; raw output
   is never piped bridge-to-bridge. Independent units are delegated in
   parallel.
-- Only `antigravity` calls and `codex:codex-rescue` calls run on a
-  separate vendor's quota — the latter is the one `Agent`-tool
-  `subagent_type` that isn't Claude (see `CLAUDE.md`, "Claude subagents are
-  not bridge delegation — except one"). Every other Claude subagent
-  (`Explore`, `general-purpose`, etc.) still burns Claude's own limit, so
-  they're reserved for work needing a tool, permission, or session state
-  only Claude Code has — not coding, QA, or security, which Antigravity and
-  `codex:codex-rescue` own outright.
+- `antigravity` calls (`agy_run`) and Codex QA/Security calls
+  (`node codex-companion.mjs task`, direct `Bash` — see "Topology" above)
+  are the only two paths that run on a separate vendor's quota; neither
+  goes through Claude subagent inference. Every Claude subagent
+  (`Explore`, `general-purpose`, and — outside this pipeline —
+  `codex:codex-rescue` itself, which is `model: sonnet`) still burns
+  Claude's own limit, so subagents are reserved for work needing a tool,
+  permission, or session state only Claude Code has — not coding, QA, or
+  security, which Antigravity and Codex's own script own outright.
 - The progress-file template (`review-topic-template.md`) uses Indonesian
   section headers, and `CLAUDE.md`'s rules refer to them by exact name —
   the section names are load-bearing. If you translate one file, translate
@@ -186,8 +196,8 @@ Three-bridge mode:
 Claude Code (Planner & Reviewer)
   -> Antigravity (antigravity MCP server, runs agy-mcp, async job per call, Antigravity pin)
        — Document Analyzer (pre-plan) / Coder-Executor (implement) / Release-Changelog Writer (post-ship)
-  -> Codex QA (codex:codex-rescue subagent, --model QA pin, openai/codex-plugin-cc) — QA Engineer
-  -> Codex Security (codex:codex-rescue subagent, --model Security pin, openai/codex-plugin-cc) — Security Engineer
+  -> Codex QA (codex-companion.mjs task, direct Bash, --model QA pin, openai/codex-plugin-cc) — QA Engineer
+  -> Codex Security (codex-companion.mjs task, direct Bash, --model Security pin, openai/codex-plugin-cc) — Security Engineer
 
 Two-bridge mode:
 Claude Code (Planner & Reviewer — also primary defense, see CLAUDE-two-bridge-overlay.md)

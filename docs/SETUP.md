@@ -80,9 +80,10 @@ self-heal on update:
    `codex-security`.** You copied `templates/CLAUDE.md` into your own
    `CLAUDE.md` at some point (step 4 below) — that's *your* copy, and
    the plugin update doesn't touch it. The "Roles" table, "Model pins"
-   table, and Security-pin row now describe the `codex:codex-rescue`
-   subagent instead, distinguished by `--model`/framing rather than by
-   separate servers. Re-diff your `CLAUDE.md` against the current
+   table, and Security-pin row now describe `codex-companion.mjs task`
+   (called directly via `Bash`, not the `codex:codex-rescue` subagent)
+   instead, distinguished by `--model`/framing rather than by separate
+   servers. Re-diff your `CLAUDE.md` against the current
    `templates/CLAUDE.md` and re-merge those sections.
 
 ### Remaining steps (still manual)
@@ -114,13 +115,17 @@ self-heal on update:
    /codex:setup
    ```
    There is no separate QA/Security profile to configure — the QA pin
-   (`5.6 Terra`) and Security pin (`5.6 Sol`) from `CLAUDE.md`'s "Model
-   pins" table are passed as `--model` on each individual
-   `codex:codex-rescue` call (see `skills/delegation-pipeline/SKILL.md`),
-   not set once via `~/.codex/config.toml`.
+   (`gpt-5.6-terra`) and Security pin (`gpt-5.6-sol`) from `CLAUDE.md`'s
+   "Model pins" table are passed as `--model` on each individual
+   `codex-companion.mjs task` call, made directly via `Bash` rather than
+   through the plugin's `codex:codex-rescue` subagent (see
+   `skills/delegation-pipeline/SKILL.md`, "Why direct Bash, not the
+   subagent"), not set once via `~/.codex/config.toml`.
 3. Verify: `claude mcp list` shows `antigravity` **Connected**. **Three-
-   bridge mode only:** also confirm `/agents` lists the `codex:codex-rescue`
-   subagent and `/codex:setup` reports Codex installed and authenticated.
+   bridge mode only:** also confirm
+   `find ~/.claude/plugins/cache/openai-codex -name codex-companion.mjs`
+   finds the script and `/codex:setup` reports Codex installed and
+   authenticated.
 4. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
    merge it in) — keep the `@AGENTS.md` import line at the top.
    **Two-bridge mode:** also append `CLAUDE-two-bridge-overlay.md`.
@@ -159,14 +164,15 @@ self-heal on update:
   structurally (a requirement matrix, a findings table), rather than
   relying on prose framing alone.
 - **(Three-bridge)** QA and Security calls both go through the same
-  `codex:codex-rescue` subagent — a `/codex:status`/`/codex:result` task id
-  from one call is meaningless for the other; always pass `--fresh` on a
-  QA/Security call rather than letting it offer to resume the other role's
-  thread.
+  `codex-companion.mjs task` script — a `status`/`result` job id from one
+  call is meaningless for the other; always pass `--fresh` (omit
+  `--resume-last`) on a QA/Security call rather than letting it resume the
+  other role's thread.
 - **(Two-bridge)** QA and Security lenses now run as backgrounded,
   concurrent `agy_run` jobs (each its own `job_id`) — you don't wait for
   one before starting the other, same as three-bridge mode's two
-  `codex:codex-rescue` calls. They still share one `agy` account/CLI with
+  `codex-companion.mjs task` calls. They still share one `agy` account/CLI
+  with
   the Coder role — see `templates/CLAUDE-two-bridge-overlay.md`, "Why this
   is weaker."
 - **Macro-delegation:** send the full plan and every touched file to
@@ -181,11 +187,12 @@ shows the `agy-mcp` command, not `npx ... agy-bridge` (see the pre-0.3.0
 upgrade note in the README if it still shows the old command after
 updating).
 
-- **Three-bridge mode:** `antigravity` connected, and `codex:codex-rescue`
+- **Three-bridge mode:** `antigravity` connected, and `codex-companion.mjs`
   runnable (see step 3 above). An Antigravity `agy_run` call returns a
-  `job_id`; a QA or Security `codex:codex-rescue` call returns a task id
-  you poll via `/codex:status`/`/codex:result` — confirm a QA call and a
-  Security call on the same diff come back as independent ids with
+  `job_id`; a QA or Security `codex-companion.mjs task` call returns a job
+  id you poll via `node codex-companion.mjs status`/`result` — confirm a
+  QA call and a Security call on the same diff come back as independent
+  ids with
   different findings (see `docs/ARCHITECTURE.md`, "Why a plugin, not an
   MCP server").
 - **Two-bridge mode:** `antigravity` connected (no Codex entries). Run one

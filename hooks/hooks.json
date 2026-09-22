@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__antigravity__agy_run(_sync)?",
+        "matcher": "mcp__.*antigravity__agy_run(_sync)?",
         "hooks": [
           {
             "type": "command",
