@@ -13,12 +13,17 @@ optional second opinion, Orchestration rules) applies unchanged.
 backgrounded `agy_run` calls, one right after the other — each returns its
 own `job_id` immediately, so you don't wait for one before starting the
 other, the same independence-of-execution property three-bridge mode gets
-from two separate `codex:codex-rescue` calls. This is new: the old
+from two separate `codex-companion.mjs task` calls. This is new: the old
 blocking bridge forced these to run sequentially since one process
 couldn't hold two calls open at once. Each call is `mode: "plan"` (read-only,
 mechanically enforced) and its own fresh conversation (no
 `conversation_id` shared with the other, or with the Coder session), so one
 framing doesn't bias the other's findings.
+
+**For an S-sized unit** (see `SKILL.md`, "Sizing a unit" — that section
+applies unchanged in two-bridge mode), this is one combined `agy_run` call
+instead of two — QA and Security questions asked in the same prompt, one
+lens pin (the QA lens pin), one `job_id` to poll.
 
 ## Model pins (two-bridge lenses)
 
@@ -72,8 +77,8 @@ Antigravity `agy_run` (Security lens):
 
 - **QA and Security lenses now run as backgrounded, concurrent `agy_run`
   jobs** (see "Step 4 replacement" above) — the same independence of
-  execution three-bridge mode gets from two separate `codex:codex-rescue`
-  calls. They still share one underlying `agy` account and CLI process
+  execution three-bridge mode gets from two separate `codex-companion.mjs
+  task` calls. They still share one underlying `agy` account and CLI process
   family with the Coder role — if that account's quota is exhausted or the
   CLI itself is unreachable, all three roles fail together, unlike
   three-bridge mode where Codex runs on entirely separate vendor

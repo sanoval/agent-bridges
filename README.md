@@ -6,7 +6,7 @@ delegation bridges, each with fixed jobs:
 | Role | Bridge |
 |---|---|
 | Document Analyzer, Coder/Executor, Release-Changelog Writer | **Antigravity** (`agy-mcp` MCP server — async jobs, not blocking calls) |
-| QA Engineer, Security Engineer | **Codex** (`codex:codex-rescue` subagent, via the separately-installed [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin) |
+| QA Engineer, Security Engineer | **Codex** (`codex-companion.mjs task` called directly via `Bash`, from the separately-installed [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin — not its `codex:codex-rescue` subagent; see `docs/ARCHITECTURE.md`) |
 | Planner and Code Reviewer, final say on every bridge output | **Claude Code** |
 
 Claude Code is the only agent with tool access, repo/session state, and

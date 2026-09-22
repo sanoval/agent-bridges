@@ -23,28 +23,31 @@ restating its value. The only other place a literal may appear is
 | Pin | Value | Applies to |
 |---|---|---|
 | Antigravity pin | `gemini-3.8-flash-medium` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on the bridge's own default-model setting as anything but a fallback |
-| QA pin | `5.6 Terra` | Passed as `--model "5.6 Terra"` on every QA `codex:codex-rescue` call — there is no profile to set it once, it's a per-call flag |
-| Security pin | `5.6 Sol` | Passed as `--model "5.6 Sol"` on every Security `codex:codex-rescue` call — same, per-call |
+| QA pin | `gpt-5.6-terra` | Passed as `--model gpt-5.6-terra` on every QA `codex-companion.mjs task` call (called directly via `Bash`, not the `codex:codex-rescue` subagent) — there is no profile to set it once, it's a per-call flag, and only the literal pin value here works: the script aliases `spark` but passes any other string straight through to Codex |
+| Security pin | `gpt-5.6-sol` | Passed as `--model gpt-5.6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |
 
 ## Roles
 
 You have one MCP delegation bridge (`antigravity`) and one plugin-provided
-subagent (`codex:codex-rescue`, from the `openai/codex-plugin-cc` plugin —
-see `docs/SETUP.md`). `antigravity` plays three fixed roles at different
-pipeline stages (all same server, same model); `codex:codex-rescue` plays
-two fixed roles, distinguished only by which model pin and framing you pass
-it — it is the same subagent both times, not two separate processes. Roles
-are **not** task-fit swapped the way earlier revisions of this template did
-it — each role always does the same job, at the same point in the pipeline:
+script (`codex-companion.mjs task`, from the `openai/codex-plugin-cc`
+plugin — see `docs/SETUP.md`, called directly via `Bash`, not through that
+plugin's `codex:codex-rescue` subagent or `/codex:*` slash commands — see
+`skills/delegation-pipeline/SKILL.md`, "Why direct Bash, not the
+subagent"). `antigravity` plays three fixed roles at different pipeline
+stages (all same server, same model); `codex-companion.mjs task` plays two
+fixed roles, distinguished only by which model pin and framing you pass it
+— it is the same script both times, not two separate processes. Roles are
+**not** task-fit swapped the way earlier revisions of this template did it
+— each role always does the same job, at the same point in the pipeline:
 
 | Role | Bridge | Model | Job |
 |---|---|---|---|
 | Document Analyzer | `antigravity` | Antigravity pin | Ingests specs/PRDs/docs before planning and produces a requirement matrix |
 | Planner & Code Reviewer | You (Claude Code) | none (you) | Plan the work from the requirement matrix, hand it to Antigravity to implement, then review the resulting diff before it goes to QA/Security |
 | Coder / Executor | `antigravity` | Antigravity pin | Implements the plan: writes/edits code, runs it, iterates until it works |
-| QA Engineer | `codex:codex-rescue` (Agent tool) | QA pin | Tests the diff: correctness, edge cases, regressions — read-only framing, `--model` set to the QA pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
-| Security Engineer | `codex:codex-rescue` (Agent tool) | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. — read-only framing, `--model` set to the Security pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
+| QA Engineer | `codex-companion.mjs task` (Bash, no `--write`) | QA pin | Tests the diff: correctness, edge cases, regressions — read-only sandbox enforced by omitting `--write`, `--model` set to the QA pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
+| Security Engineer | `codex-companion.mjs task` (Bash, no `--write`) | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. — read-only sandbox enforced by omitting `--write`, `--model` set to the Security pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
 | Release / Changelog Writer | `antigravity` | Antigravity pin | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
 
 You are the only party with repo write access to *decide* — Antigravity
@@ -78,21 +81,27 @@ and approves rather than something that happens silently. The hook does not
 cover the Bash half of this gate (file-modifying shell commands) — that
 stays your own responsibility to catch.
 
-## Claude subagents are not bridge delegation — except one
+## Claude subagents are not bridge delegation
 
 Your own subagents (the `Agent`/`Task` tool with `subagent_type: Explore`,
-`general-purpose`, etc.) still run as Claude and still count against
-Claude's own usage limit. `codex:codex-rescue` is the one exception: it is
-a subagent *name*, invoked through the same `Agent` tool, but it is
-provided by the `openai/codex-plugin-cc` plugin and runs Codex on Codex's
-own quota, not Claude's — it only looks like a Claude subagent because of
-which tool launches it. Only `antigravity` calls and `codex:codex-rescue`
-calls run on a separate vendor's quota; every other `subagent_type` is
-Claude. Reserve genuine Claude subagents for work that needs a tool,
-permission, or piece of session state only Claude Code has (e.g. reading
-your own conversation state, running local git commands as part of
-review) — not for coding, QA, or security work, which `antigravity` and
-`codex:codex-rescue` own.
+`general-purpose`, `codex:codex-rescue`, etc.) still run as Claude and
+still count against Claude's own usage limit — `codex:codex-rescue` is
+itself `model: sonnet`, a Sonnet-run wrapper that reads a forwarded prompt
+and then shells out to `codex-companion.mjs` on your behalf; the actual
+Codex work it triggers is on Codex's quota, but the wrapper hop reading
+and forwarding your prompt is real Claude inference. This pipeline avoids
+that hop entirely: QA and Security call `codex-companion.mjs task`
+directly via your own `Bash` tool (see `skills/delegation-pipeline/
+SKILL.md`, "Why direct Bash, not the subagent"), so nothing in the
+QA/Security path runs through any Claude subagent at all. Only
+`antigravity` calls (`agy_run`) and direct `codex-companion.mjs` calls run
+on a separate vendor's quota with zero Claude-side wrapper cost; every
+`subagent_type` invoked through `Agent`/`Task`, including
+`codex:codex-rescue`, is Claude. Reserve genuine Claude subagents for work
+that needs a tool, permission, or piece of session state only Claude Code
+has (e.g. reading your own conversation state, running local git commands
+as part of review) — not for coding, QA, or security work, which
+`antigravity` and `codex-companion.mjs` own.
 
 ## Do NOT delegate
 
