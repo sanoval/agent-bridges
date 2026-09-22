@@ -16,18 +16,50 @@ The role table, the Gate, "Do NOT delegate", and the model pins referenced
 throughout (Antigravity pin, QA pin, Security pin) live in `CLAUDE.md` — this
 file assumes you've already read that.
 
+## Sizing a unit
+
+Decide this once, during step 1 (Plan), before delegating anything, and
+record it in the checkpoint — it determines which steps below actually run
+for this unit; a step not listed for a size is skipped outright, not just
+abbreviated.
+
+- **S** — a small, self-contained change with an obvious shape (one or two
+  files, no new architecture decision, acceptance criteria you could state
+  in one sentence). Runs: Plan (1) → Implement (2) → Review (3) → **one
+  combined QA+Security pass** (4 — a single `codex-companion.mjs task` call
+  covering both questions, rather than two separate ones) → Reconcile (5).
+  No Analyze (0), no Release notes (6).
+- **M** — the default for most units: a real feature or fix with more than
+  one plausible approach, or acceptance criteria that need spelling out.
+  Runs the full pipeline (0–7), except Analyze (0) stays conditional on
+  having doc input to ingest, same rule as always.
+- **L** — an architecture-level change, anything security-sensitive by
+  nature of the task (not just by what the diff touches), or a unit built
+  from a spec/PRD. Runs the full pipeline (0–7), and is the tier where
+  "Optional second opinion on your plan" (below) is worth actually
+  spending a call on before handing the plan to Antigravity.
+
+Default to **M** when unsure. **S** is for changes you'd genuinely feel
+silly running a 7-step pipeline over — not an excuse to skip QA/Security
+scrutiny because a diff "looks small." If step 3 (Review) turns up more
+than expected once you've started, upgrade the unit to M/L mid-flight and
+note the upgrade (and why) in the checkpoint.
+
 ## Pipeline
 
 0. **Analyze** (`antigravity`, Document Analyzer role, Antigravity pin).
+   **Skipped outright for S-sized units** (see "Sizing a unit" above).
    When the unit starts from a spec/PRD/doc rather than a self-evident bug
    or already-clear ask, send Antigravity the full doc set via `agy_run`
    with `mode: "plan"` and ask for a structured requirement matrix
    (requirement → source citation → open questions). Skip this step
    for units with no doc input to ingest.
-1. **Plan** (you). Break the task into a concrete implementation spec:
-   files/modules touched, the change itself, acceptance criteria — using
-   the requirement matrix from step 0 if there was one. This is your job
-   alone — do not delegate planning to Antigravity or Codex.
+1. **Plan** (you). Decide the unit's size first (see "Sizing a unit"
+   above) — it determines which steps below run. Then break the task into
+   a concrete implementation spec: files/modules touched, the change
+   itself, acceptance criteria — using the requirement matrix from step 0
+   if there was one. This is your job alone — do not delegate planning to
+   Antigravity or Codex.
 2. **Implement** (`antigravity`, Coder role, Antigravity pin). Send the full
    plan plus every file/module it touches in one `agy_run` call with
    `mode: "accept-edits"` — see "Macro-Delegation" below. Antigravity does
@@ -46,13 +78,16 @@ file assumes you've already read that.
    continuity" below for why this is two backgrounded calls you poll, not
    two parallel foreground ones. QA checks correctness/edge cases/
    regressions; Security checks for exploitable issues. Neither sees the
-   other's output.
+   other's output. **For an S-sized unit, this is one combined call**
+   instead — QA and Security questions asked in the same prompt, one
+   `--model` (the QA pin), one job to poll — see "Sizing a unit" above.
 5. **Reconcile** (you). Merge QA and Security findings. Anything either
    flags gets fixed (by you directly for small fixes, or sent back to
    Antigravity with the finding attached for larger ones) before you
    consider the unit done. Disagreement between QA and Security about
    priority is yours to resolve, not theirs.
 6. **Release notes** (`antigravity`, Release Writer role, Antigravity pin).
+   **Skipped outright for S-sized units** (see "Sizing a unit" above).
    Once a unit is accepted, send the final diff plus the plan to Antigravity
    via `agy_run` with `mode: "plan"` to draft the changelog entry / doc
    update. This is drafting only, and `mode: "plan"` makes that mechanical
@@ -329,7 +364,15 @@ Antigravity `agy_run` (Release Writer):
 - **Checkpoint after every major decision.** If you reject an Antigravity
   diff and send it back, or override a QA/Security finding, write it to the
   progress file's "Pendekatan yang sudah dicoba & gagal" section immediately,
-  with the reason.
+  with the reason. A rejected Coder diff also increments the "Coder
+  re-sends" counter at the top of the progress file (see
+  `templates/review-topic-template.md`) — this is the running signal for
+  whether the Antigravity pin is holding up across units, not just a
+  per-unit note.
+- **Record the unit's size at Plan time.** Per "Sizing a unit" above, write
+  S/M/L into the unit's status block as soon as you decide it in step 1 —
+  don't leave a future session to infer which steps ran from which
+  `job_id`s are present.
 - **Keep the progress file lean.** When a unit is SELESAI and no open gap
   references it, move its full section to `review-<topic>-archive.md` and
   leave a one-line summary behind.

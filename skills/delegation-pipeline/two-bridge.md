@@ -20,6 +20,11 @@ mechanically enforced) and its own fresh conversation (no
 `conversation_id` shared with the other, or with the Coder session), so one
 framing doesn't bias the other's findings.
 
+**For an S-sized unit** (see `SKILL.md`, "Sizing a unit" — that section
+applies unchanged in two-bridge mode), this is one combined `agy_run` call
+instead of two — QA and Security questions asked in the same prompt, one
+lens pin (the QA lens pin), one `job_id` to poll.
+
 ## Model pins (two-bridge lenses)
 
 Every other Antigravity call specifies `model:` set to the Antigravity pin.

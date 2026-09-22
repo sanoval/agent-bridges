@@ -18,12 +18,23 @@ Security count of 0 on a unit marked SELESAI is a red flag: that role was
 skipped. Analyzer/Release Writer legitimately stay 0 on units with no doc
 input or no ship step yet. Delete whichever mode's line doesn't apply.)
 
+Coder re-sends (running total, this project): <N> rejected out of <N> Coder
+calls. (A "re-send" is any Coder diff you rejected in step 3 and sent back
+to Antigravity for that same unit — each one also gets its own row in
+"Pendekatan yang sudah dicoba & gagal" below with the reason. If this ratio
+climbs — most units needing more than one Coder round before Review
+accepts — that's a signal the Antigravity pin may be under-powered for
+this project's units, not just a per-unit fluke; worth raising rather than
+quietly re-sending every time.)
+
 ## Konteks
 <why this task exists, what the overall scope is>
 
 ---
 
 ## Status: <Unit N — Name> — SELESAI/IN PROGRESS
+Size: S/M/L (lihat skill `delegation-pipeline`, "Sizing a unit" — menentukan
+step mana yang jalan untuk unit ini) | Coder re-sends unit ini: <N>
 
 ### Requirement summary
 <cite exact doc/spec sections — future reader must be able to re-verify>
