@@ -24,7 +24,7 @@ restating its value. The only other place a literal may appear is
 |---|---|---|
 | Antigravity pin | `gemini-3.8-flash-medium` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on the bridge's own default-model setting as anything but a fallback |
 | QA pin | `gpt-5.6-terra` | Passed as `--model gpt-5.6-terra` on every QA `codex-companion.mjs task` call (called directly via `Bash`, not the `codex:codex-rescue` subagent) — there is no profile to set it once, it's a per-call flag, and only the literal pin value here works: the script aliases `spark` but passes any other string straight through to Codex |
-| Security pin | `gpt-5.6-sol` | Passed as `--model gpt-5.6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
+| Security pin | `gpt-6-sol` | Passed as `--model gpt-6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |
 
 ## Roles
