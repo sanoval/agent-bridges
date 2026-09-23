@@ -304,7 +304,7 @@ Codex QA pass (`Bash`, direct script call — no `--write`, so the run gets
 > file:line citations for each finding."
 
 Codex Security pass (same mechanism, Security pin):
-> node codex-companion.mjs task --model gpt-5.6-sol --effort medium
+> node codex-companion.mjs task --model gpt-6-sol --effort medium
 > --background --fresh "Review only. Do not propose edits as a diff.
 > Diff against main in this repo covers src/billing/refund.py,
 > src/common/retry.py, tests/billing/test_refund_idempotency.py — read it

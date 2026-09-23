@@ -115,7 +115,7 @@ self-heal on update:
    /codex:setup
    ```
    There is no separate QA/Security profile to configure — the QA pin
-   (`gpt-5.6-terra`) and Security pin (`gpt-5.6-sol`) from `CLAUDE.md`'s
+   (`gpt-5.6-terra`) and Security pin (`gpt-6-sol`) from `CLAUDE.md`'s
    "Model pins" table are passed as `--model` on each individual
    `codex-companion.mjs task` call, made directly via `Bash` rather than
    through the plugin's `codex:codex-rescue` subagent (see
