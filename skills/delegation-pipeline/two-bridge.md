@@ -39,7 +39,7 @@ added to your project's `CLAUDE.md` "Model pins" table:
 Verify both IDs actually appear in your own `agy_run`'s `list_models`
 output before relying on them — model availability is per-account, and the
 values above are examples from one account, not a guarantee about yours.
-Both pins must differ from the Antigravity pin, and from each other.
+Both pins must differ from the Antigravity Fast/Deep pins, and from each other.
 Picking genuinely different model families (not just different sizes of
 the same family) is what gives the two lenses independent blind spots —
 see "Why this is weaker" below for why that distinction matters and what

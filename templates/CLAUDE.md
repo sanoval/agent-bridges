@@ -23,7 +23,7 @@ restating its value. The only other place a literal may appear is
 | Pin | Value | Applies to |
 |---|---|---|
 | Antigravity Fast pin | `gemini-3.8-flash-medium` | Document Analyzer, Release Writer, and Coder for Unit S — pass `model:` explicitly on each call |
-| Antigravity Deep pin | `gemini-3.1-pro-high` | Coder for Unit M/L and mandatory Adversarial Plan Critique for Unit L (architectural / security-sensitive) |
+| Antigravity Deep pin | `gemini-3.8-flash-high` | Coder for Unit M/L and mandatory Adversarial Plan Critique for Unit L (architectural / security-sensitive) |
 | QA pin | `gpt-5.6-terra` | Passed as `--model gpt-5.6-terra` on every QA `codex-companion.mjs task` call (called directly via `Bash`, not the `codex:codex-rescue` subagent) — there is no profile to set it once, it's a per-call flag, and only the literal pin value here works: the script aliases `spark` but passes any other string straight through to Codex |
 | Security pin | `gpt-6-sol` | Passed as `--model gpt-6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |

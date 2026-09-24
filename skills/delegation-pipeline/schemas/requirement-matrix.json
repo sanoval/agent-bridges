@@ -3,11 +3,13 @@
   "title": "RequirementMatrix",
   "description": "Structured requirement matrix extracted by Antigravity Document Analyzer",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "requirements": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -34,11 +36,11 @@
             "description": "Objective, testable pass/fail verification criteria"
           },
           "open_questions": {
-            "type": "string",
+            "type": ["string", "null"],
             "description": "Open questions, trade-offs, or conflicts with other requirements"
           }
         },
-        "required": ["id", "description", "acceptance_criteria"]
+        "required": ["id", "description", "source_citation", "unresolved", "acceptance_criteria"]
       }
     }
   },

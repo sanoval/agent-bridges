@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "agent-bridges",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "source": "./",
       "description": "Delegation-pipeline and learning-curator skills, the antigravity MCP bridge registration (agy-mcp — async jobs, not blocking calls), and the Gate-enforcement hook for the agent-bridges pipeline. Codex QA/Security (three-bridge mode) requires separately installing openai/codex-plugin-cc.",
       "homepage": "https://github.com/sanoval/agent-bridges",

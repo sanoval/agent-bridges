@@ -20,7 +20,7 @@ input or no ship step yet. Delete whichever mode's line doesn't apply.)
 
 Coder re-sends (running total, this project):
 - Fast pin (`gemini-3.8-flash-medium`): <N> rejected out of <N> Fast calls
-- Deep pin (`gemini-3.1-pro-high`): <N> rejected out of <N> Deep calls
+- Deep pin (`gemini-3.8-flash-high`): <N> rejected out of <N> Deep calls
 (A "re-send" is any Coder diff you rejected in step 3 and sent back to Antigravity
 for that same unit — each one also gets its own row in "Pendekatan yang sudah
 dicoba & gagal" below with the reason. Keeping these counters separate ensures
