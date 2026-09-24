@@ -15,8 +15,8 @@ Roles table with:
 
 | Role | Bridge (MCP server) | Model | Job |
 |---|---|---|---|
-| QA (lens) | `antigravity` | QA lens pin (see `skills/delegation-pipeline/two-bridge.md`, "Model pins") — not the Antigravity pin | Reviews the diff for correctness/edge cases/regressions, framed explicitly as a QA pass |
-| Security (lens) | `antigravity` | Security lens pin (different model family from the QA lens pin) — not the Antigravity pin | Reviews the diff for exploitable issues, framed explicitly as a security pass |
+| QA (lens) | `antigravity` | QA lens pin (see `skills/delegation-pipeline/two-bridge.md`, "Model pins") — not the Antigravity Fast/Deep pin | Reviews the diff for correctness/edge cases/regressions, framed explicitly as a QA pass |
+| Security (lens) | `antigravity` | Security lens pin (different model family from the QA lens pin) — not the Antigravity Fast/Deep pin | Reviews the diff for exploitable issues, framed explicitly as a security pass |
 
 ### Why this is weaker, and what compensates
 

@@ -27,8 +27,8 @@ lens pin (the QA lens pin), one `job_id` to poll.
 
 ## Model pins (two-bridge lenses)
 
-Every other Antigravity call specifies `model:` set to the Antigravity pin.
-The QA and Security lens calls are the exception — each gets its own pin,
+Every other Antigravity call specifies `model:` set to the Antigravity Fast pin
+or Deep pin. The QA and Security lens calls are the exception — each gets its own pin,
 added to your project's `CLAUDE.md` "Model pins" table:
 
 | Pin | Example value | Applies to |
