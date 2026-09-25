@@ -27,8 +27,8 @@ lens pin (the QA lens pin), one `job_id` to poll.
 
 ## Model pins (two-bridge lenses)
 
-Every other Antigravity call specifies `model:` set to the Antigravity pin.
-The QA and Security lens calls are the exception — each gets its own pin,
+Every other Antigravity call specifies `model:` set to the Antigravity Fast pin
+or Deep pin. The QA and Security lens calls are the exception — each gets its own pin,
 added to your project's `CLAUDE.md` "Model pins" table:
 
 | Pin | Example value | Applies to |
@@ -39,7 +39,7 @@ added to your project's `CLAUDE.md` "Model pins" table:
 Verify both IDs actually appear in your own `agy_run`'s `list_models`
 output before relying on them — model availability is per-account, and the
 values above are examples from one account, not a guarantee about yours.
-Both pins must differ from the Antigravity pin, and from each other.
+Both pins must differ from the Antigravity Fast/Deep pins, and from each other.
 Picking genuinely different model families (not just different sizes of
 the same family) is what gives the two lenses independent blind spots —
 see "Why this is weaker" below for why that distinction matters and what

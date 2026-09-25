@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RequirementMatrix",
+  "description": "Structured requirement matrix extracted by Antigravity Document Analyzer",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique requirement identifier (e.g. REQ-001)"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category (Functional, Security, Performance, Data, Interface)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Clear statement of the requirement"
+          },
+          "source_citation": {
+            "type": ["string", "null"],
+            "description": "Source file and line number citation (e.g. docs/spec.md:45-52), or null if not directly traceable"
+          },
+          "unresolved": {
+            "type": "boolean",
+            "description": "True if requirement has missing specifications, ambiguity, or unresolved assumptions"
+          },
+          "acceptance_criteria": {
+            "type": "string",
+            "description": "Objective, testable pass/fail verification criteria"
+          },
+          "open_questions": {
+            "type": ["string", "null"],
+            "description": "Open questions, trade-offs, or conflicts with other requirements"
+          }
+        },
+        "required": ["id", "description", "source_citation", "unresolved", "acceptance_criteria"]
+      }
+    }
+  },
+  "required": ["requirements"]
+}

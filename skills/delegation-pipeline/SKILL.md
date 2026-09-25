@@ -13,7 +13,7 @@ get pasted there. If this project runs **two-bridge mode**
 this directory: it replaces step 4 and the QA/Security material below.
 
 The role table, the Gate, "Do NOT delegate", and the model pins referenced
-throughout (Antigravity pin, QA pin, Security pin) live in `CLAUDE.md` — this
+throughout (Antigravity Fast pin, Antigravity Deep pin, QA pin, Security pin) live in `CLAUDE.md` — this
 file assumes you've already read that.
 
 ## Sizing a unit
@@ -25,34 +25,34 @@ abbreviated.
 
 - **S** — a small, self-contained change with an obvious shape (one or two
   files, no new architecture decision, acceptance criteria you could state
-  in one sentence). Runs: Plan (1) → Implement (2) → Review (3) → **one
+  in one sentence). Runs: Plan (1) → Implement (2, using **Antigravity Fast pin**) → Review (3) → **one
   combined QA+Security pass** (4 — a single `codex-companion.mjs task` call
   covering both questions, rather than two separate ones) → Reconcile (5).
   No Analyze (0), no Release notes (6).
 - **M** — the default for most units: a real feature or fix with more than
   one plausible approach, or acceptance criteria that need spelling out.
-  Runs the full pipeline (0–7), except Analyze (0) stays conditional on
-  having doc input to ingest, same rule as always.
+  Runs the full pipeline (0–7, Coder uses **Antigravity Deep pin**), except Analyze (0) stays conditional on
+  having doc input to ingest, same rule as always. Adversarial Plan Critique is optional.
 - **L** — an architecture-level change, anything security-sensitive by
   nature of the task (not just by what the diff touches), or a unit built
-  from a spec/PRD. Runs the full pipeline (0–7), and is the tier where
-  "Optional second opinion on your plan" (below) is worth actually
-  spending a call on before handing the plan to Antigravity.
+  from a spec/PRD. Runs the full pipeline (0–7, Coder uses **Antigravity Deep pin**).
+  For architectural or security-sensitive L units, **Adversarial Plan Critique is MANDATORY**
+  before step 2.
 
 Default to **M** when unsure. **S** is for changes you'd genuinely feel
 silly running a 7-step pipeline over — not an excuse to skip QA/Security
 scrutiny because a diff "looks small." If step 3 (Review) turns up more
-than expected once you've started, upgrade the unit to M/L mid-flight and
-note the upgrade (and why) in the checkpoint.
+than expected once you've started, upgrade the unit to M/L mid-flight,
+switch Coder re-sends to the Deep pin, and note the upgrade (and why) in the checkpoint.
 
 ## Pipeline
 
-0. **Analyze** (`antigravity`, Document Analyzer role, Antigravity pin).
+0. **Analyze** (`antigravity`, Document Analyzer role, Antigravity Fast pin).
    **Skipped outright for S-sized units** (see "Sizing a unit" above).
    When the unit starts from a spec/PRD/doc rather than a self-evident bug
    or already-clear ask, send Antigravity the full doc set via `agy_run`
-   with `mode: "plan"` and ask for a structured requirement matrix
-   (requirement → source citation → open questions). Skip this step
+   with `mode: "plan"`, pass `json_schema` from `skills/delegation-pipeline/schemas/requirement-matrix.json`,
+   and ask for a structured requirement matrix. Skip this step
    for units with no doc input to ingest.
 1. **Plan** (you). Decide the unit's size first (see "Sizing a unit"
    above) — it determines which steps below run. Then break the task into
@@ -60,11 +60,21 @@ note the upgrade (and why) in the checkpoint.
    itself, acceptance criteria — using the requirement matrix from step 0
    if there was one. This is your job alone — do not delegate planning to
    Antigravity or Codex.
-2. **Implement** (`antigravity`, Coder role, Antigravity pin). Send the full
-   plan plus every file/module it touches in one `agy_run` call with
+   **For architectural or security-sensitive Unit L:** Submit the draft plan
+   to Antigravity in a new conversation for an **Adversarial Plan Critique**
+   (`agy_run`, `mode: "plan"`, Antigravity Deep pin) to expose blind spots,
+   unhandled edge cases, or breaking changes before locking the plan.
+2. **Implement** (`antigravity`, Coder role, Antigravity Fast pin for S / Deep pin for M & L).
+   Send the full plan plus every file/module it touches in one `agy_run` call with
    `mode: "accept-edits"` — see "Macro-Delegation" below. Antigravity does
    the actual edit/execution; `mode: "accept-edits"` is what makes this the
    one role allowed to touch files — every other role runs `mode: "plan"`.
+   **Self-Verification Mandate:**
+   - Establish a test baseline before edits if tests exist.
+   - Do NOT edit test files outside the plan's explicit scope (prevents test assertion weakening or reward hacking).
+   - Run local tests via Bash after editing, iterate to fix failures (capped at 3 iterations).
+   - Report the diff along with test commands run, exit code, and raw test output.
+   - Diff is returned regardless of final test pass/fail; Claude Code re-verifies in step 3.
    Start a **new** Antigravity conversation for this call rather than
    continuing the Analyze session — see "Session continuity" for why.
 3. **Review** (you). Read the resulting diff yourself before it goes
@@ -86,7 +96,7 @@ note the upgrade (and why) in the checkpoint.
    Antigravity with the finding attached for larger ones) before you
    consider the unit done. Disagreement between QA and Security about
    priority is yours to resolve, not theirs.
-6. **Release notes** (`antigravity`, Release Writer role, Antigravity pin).
+6. **Release notes** (`antigravity`, Release Writer role, Antigravity Fast pin).
    **Skipped outright for S-sized units** (see "Sizing a unit" above).
    Once a unit is accepted, send the final diff plus the plan to Antigravity
    via `agy_run` with `mode: "plan"` to draft the changelog entry / doc
@@ -117,9 +127,10 @@ to block up to its 10-minute cap for an inline result — prefer `agy_run` for
 anything from the Coder role, since that's the payload most likely to run
 long) and must specify:
 
-- `model:` set to the Antigravity pin explicitly (do not rely on the
-  bridge's own default-model setting as anything but a fallback — see
-  `docs/SETUP.md` for why).
+- `model:` set to the relevant Antigravity pin explicitly (Antigravity Fast pin for
+  Analyzer, Release Writer, and S-unit Coder; Antigravity Deep pin for M/L-unit Coder
+  and Adversarial Plan Critique — do not rely on the bridge's own default-model setting
+  as anything but a fallback — see `docs/SETUP.md` for why).
 - `mode:` — `"plan"` for every role except Coder, `"accept-edits"` for
   Coder alone. This is what makes "read-only" a property the tool enforces,
   not just a convention you ask for in prose.
@@ -260,18 +271,18 @@ if so, paste that skill's markdown body into the prompt text you pass to
 was pasted into a Codex call, since Codex won't have discovered it on its
 own.
 
-## Optional second opinion on your plan
+## Adversarial critique on your plan (Mandatory for architectural/security L units, optional for M)
 
 Before handing a high-stakes plan to Antigravity for implementation
 (architecture-level change, risky refactor, anything security-sensitive by
-nature of the task, not just the code), you may run the plan itself past
-Antigravity as a pre-implementation sanity check — `agy_run`, `mode:
-"plan"`, framing the prompt explicitly as an adversarial critique request
-("find what's wrong with this plan before it's built," not "review this
-code"). There is no dedicated review tool to reach for here — the critique
-comes from what you ask for in the prompt, same as the QA/Security lens
-framing in two-bridge mode. This is optional and sits before step 2 of the
-pipeline — it does not replace the QA/Security pass in step 4, which is
+nature of the task, not just the code), submit the plan itself to Antigravity in
+a new conversation as a pre-implementation sanity check — `agy_run`, `mode:
+"plan"`, Antigravity Deep pin, framing the prompt explicitly as an adversarial critique
+request ("find what's wrong with this plan before it's built, uncovering blind
+spots, backward compatibility risks, and hidden race conditions").
+Record each finding as accepted or rejected (with reasoning) in your checkpoint.
+This is mandatory for architectural or security-sensitive L units and optional
+for M units — it does not replace the QA/Security pass in step 4, which is
 mandatory for every unit regardless of stakes.
 
 ## Example delegation prompts
@@ -280,9 +291,9 @@ Antigravity `agy_run` (Document Analyzer):
 > Ingest `docs/billing-spec.md`, `docs/refund-policy.md`, and the linked
 > PRD under `docs/prd/refund-idempotency.md`. Question: what are the
 > concrete, testable requirements for idempotent refund processing? Output:
-> a requirement matrix — requirement, source `file:line` citation, and any
-> open question the spec doesn't resolve. model: <Antigravity pin>.
-> mode: "plan". cwd: /path/to/repo
+> structured requirement matrix conforming to the attached schema.
+> json_schema: <content of skills/delegation-pipeline/schemas/requirement-matrix.json>.
+> model: <Antigravity Fast pin>. mode: "plan". cwd: /path/to/repo
 
 Antigravity `agy_run` (Implementation):
 > Plan: add idempotency key checking to `post_invoice` in `src/billing/refund.py`
@@ -290,7 +301,12 @@ Antigravity `agy_run` (Implementation):
 > `src/common/retry.py`, `tests/billing/test_refund_idempotency.py`.
 > Acceptance criteria: `test_refund_idempotency` passes under concurrent
 > retries; no new ledger entry without a committed invoice row.
-> model: <Antigravity pin>. mode: "accept-edits". cwd: /path/to/repo
+> Self-Verification mandate: Run existing tests first to check baseline.
+> Do NOT modify test files outside the explicit plan scope. Run local tests
+> (`pytest tests/billing/test_refund_idempotency.py`) via Bash after editing.
+> Iterate to fix failures up to 3 times. Report the diff along with commands run,
+> exit code, and raw test stdout.
+> model: <Antigravity Fast pin for S, Deep pin for M/L>. mode: "accept-edits". cwd: /path/to/repo
 
 Codex QA pass (`Bash`, direct script call — no `--write`, so the run gets
 `codex-companion.mjs`'s read-only sandbox):
@@ -318,7 +334,7 @@ Antigravity `agy_run` (Release Writer):
 > <paste from step 1>. Draft: a changelog entry (one or two lines, user-
 > facing framing) and any doc updates the diff makes stale. Output: the
 > drafted text plus a list of files it should replace/append to — I will
-> review and commit it myself. model: <Antigravity pin>. mode: "plan".
+> review and commit it myself. model: <Antigravity Fast pin>. mode: "plan".
 
 ## Parallelism, failures, and verification
 
@@ -364,11 +380,11 @@ Antigravity `agy_run` (Release Writer):
 - **Checkpoint after every major decision.** If you reject an Antigravity
   diff and send it back, or override a QA/Security finding, write it to the
   progress file's "Pendekatan yang sudah dicoba & gagal" section immediately,
-  with the reason. A rejected Coder diff also increments the "Coder
-  re-sends" counter at the top of the progress file (see
-  `templates/review-topic-template.md`) — this is the running signal for
-  whether the Antigravity pin is holding up across units, not just a
-  per-unit note.
+  with the reason. A rejected Coder diff also increments the relevant
+  "Coder (Fast) re-sends" or "Coder (Deep) re-sends" counter at the top of
+  the progress file (see `templates/review-topic-template.md`) — this is the
+  running signal for whether the Fast or Deep pin is holding up across units,
+  not just a per-unit note.
 - **Record the unit's size at Plan time.** Per "Sizing a unit" above, write
   S/M/L into the unit's status block as soon as you decide it in step 1 —
   don't leave a future session to infer which steps ran from which

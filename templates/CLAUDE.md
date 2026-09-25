@@ -22,7 +22,8 @@ restating its value. The only other place a literal may appear is
 
 | Pin | Value | Applies to |
 |---|---|---|
-| Antigravity pin | `gemini-3.8-flash-medium` | Every Analyzer / Coder / Release Writer call — pass `model:` explicitly on each call, never rely on the bridge's own default-model setting as anything but a fallback |
+| Antigravity Fast pin | `gemini-3.8-flash-medium` | Document Analyzer, Release Writer, and Coder for Unit S — pass `model:` explicitly on each call |
+| Antigravity Deep pin | `gemini-3.8-flash-high` | Coder for Unit M/L and mandatory Adversarial Plan Critique for Unit L (architectural / security-sensitive) |
 | QA pin | `gpt-5.6-terra` | Passed as `--model gpt-5.6-terra` on every QA `codex-companion.mjs task` call (called directly via `Bash`, not the `codex:codex-rescue` subagent) — there is no profile to set it once, it's a per-call flag, and only the literal pin value here works: the script aliases `spark` but passes any other string straight through to Codex |
 | Security pin | `gpt-6-sol` | Passed as `--model gpt-6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |
@@ -35,7 +36,7 @@ plugin — see `docs/SETUP.md`, called directly via `Bash`, not through that
 plugin's `codex:codex-rescue` subagent or `/codex:*` slash commands — see
 `skills/delegation-pipeline/SKILL.md`, "Why direct Bash, not the
 subagent"). `antigravity` plays three fixed roles at different pipeline
-stages (all same server, same model); `codex-companion.mjs task` plays two
+stages (all same server, tiered models); `codex-companion.mjs task` plays two
 fixed roles, distinguished only by which model pin and framing you pass it
 — it is the same script both times, not two separate processes. Roles are
 **not** task-fit swapped the way earlier revisions of this template did it
@@ -43,12 +44,12 @@ fixed roles, distinguished only by which model pin and framing you pass it
 
 | Role | Bridge | Model | Job |
 |---|---|---|---|
-| Document Analyzer | `antigravity` | Antigravity pin | Ingests specs/PRDs/docs before planning and produces a requirement matrix |
+| Document Analyzer | `antigravity` | Antigravity Fast pin | Ingests specs/PRDs/docs before planning and produces a validated requirement matrix |
 | Planner & Code Reviewer | You (Claude Code) | none (you) | Plan the work from the requirement matrix, hand it to Antigravity to implement, then review the resulting diff before it goes to QA/Security |
-| Coder / Executor | `antigravity` | Antigravity pin | Implements the plan: writes/edits code, runs it, iterates until it works |
+| Coder / Executor | `antigravity` | Antigravity Fast pin (S) / Deep pin (M/L) | Implements the plan: writes/edits code, runs local tests via Bash, iterates to resolve failures before returning |
 | QA Engineer | `codex-companion.mjs task` (Bash, no `--write`) | QA pin | Tests the diff: correctness, edge cases, regressions — read-only sandbox enforced by omitting `--write`, `--model` set to the QA pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
 | Security Engineer | `codex-companion.mjs task` (Bash, no `--write`) | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. — read-only sandbox enforced by omitting `--write`, `--model` set to the Security pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
-| Release / Changelog Writer | `antigravity` | Antigravity pin | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
+| Release / Changelog Writer | `antigravity` | Antigravity Fast pin | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
 
 You are the only party with repo write access to *decide* — Antigravity
 writes the code (and the docs), but you review it before it ships, and
