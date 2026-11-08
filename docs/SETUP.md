@@ -148,6 +148,46 @@ self-heal on update:
    skill so Claude Code discovers it too. (Project-side: create an empty,
    committed `.agent-bridges/learning/log.md`, and gitignore
    `.agent-bridges/learning/pending/` only.)
+9. **(Optional) Share one global rules file with Antigravity — machine-side
+   only.** Antigravity reads its global memory from
+   `~/.antigravity/GLOBAL_RULES.md`. To keep it in sync with your global
+   `~/.claude/CLAUDE.md` instead of maintaining two copies, make it a
+   symlink:
+   ```bash
+   [ -e ~/.antigravity/GLOBAL_RULES.md ] && [ ! -L ~/.antigravity/GLOBAL_RULES.md ] \
+     && mv ~/.antigravity/GLOBAL_RULES.md ~/.antigravity/GLOBAL_RULES.md.bak
+   ln -sfn ~/.claude/CLAUDE.md ~/.antigravity/GLOBAL_RULES.md
+   readlink ~/.antigravity/GLOBAL_RULES.md   # → …/.claude/CLAUDE.md
+   ```
+   Consequences to keep in mind (tested on `agy` 1.5.3, `codex-cli`
+   0.166.0):
+   - **Antigravity reads the whole file**, including the Gate, delegation
+     and orchestrator rules written for Claude Code. Say so near the top
+     of your global `CLAUDE.md` — e.g. "if you are Antigravity, the
+     pipeline/gate rules here are context about the orchestrator, not
+     instructions to you". Don't claim Antigravity "never sees this
+     file": that's true for a project `CLAUDE.md` from
+     `templates/CLAUDE.md`, not for a symlinked global one.
+   - **Write shared sections per agent.** If a section names tools
+     (MCP server names, tool prefixes) that differ between Claude Code
+     and Antigravity, give each agent its own column or line. Otherwise
+     one agent ends up following instructions meant for the other. For
+     example, a claude.ai connector is visible to Claude Code only, so
+     Antigravity needs its own locally configured server for the same
+     account.
+   - **Editing `GLOBAL_RULES.md` edits `CLAUDE.md`.** Any tool that writes
+     through the symlink changes Claude Code's rules too. Before editing
+     either file, check with `readlink`.
+   - **Codex is not covered.** Codex reads `~/.codex/AGENTS.md` (plus
+     each project's `AGENTS.md`), not this file. Copy any section Codex
+     must also follow there by hand, and re-sync it whenever you change
+     the shared section.
+
+   Verify: ask each agent a question that only the shared section
+   answers, in a headless run, e.g.
+   `agy --mode plan -p "From your global rules only: …"` and
+   `codex exec -s read-only "From your global rules only: …"`. Both
+   should answer from their own copy.
 
 ## Operational notes
 
