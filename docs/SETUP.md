@@ -132,9 +132,18 @@ self-heal on update:
 
    **Then set the Antigravity Fast pin for this account's tier.**
    Antigravity subscriptions come in two tiers: one with access to the
-   Gemini 4 series and one limited to `gemini-3.8-flash`. Ask Claude Code
-   to call the `antigravity` bridge's `list_models` tool and look for the
-   exact ID `gemini-4-neon-medium`:
+   Gemini 4 series and one limited to `gemini-3.8-flash`. List the models
+   this account can use with `agy models` (one `<id> <display name>` row
+   per model; the bridge's `list_models` tool returns the same IDs), and
+   look for the exact ID `gemini-4-neon-medium`:
+
+   ```bash
+   if agy models | awk '{print $1}' | grep -qx 'gemini-4-neon-medium'; then
+     echo "Gemini 4 tier → Fast pin: gemini-4-neon-medium"
+   else
+     echo "gemini-3.8-flash tier → Fast pin: gemini-3.8-flash-medium"
+   fi
+   ```
 
    | `list_models` output | Fast pin to write into `CLAUDE.md` |
    |---|---|
