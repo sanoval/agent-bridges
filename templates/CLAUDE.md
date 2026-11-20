@@ -22,11 +22,22 @@ restating its value. The only other place a literal may appear is
 
 | Pin | Value | Applies to |
 |---|---|---|
-| Antigravity Fast pin | `gemini-3.8-flash-medium` | Document Analyzer, Release Writer, and Coder for Unit S — pass `model:` explicitly on each call |
+| Antigravity Fast pin | `gemini-4-neon-medium` if this account has Gemini 4 access, otherwise `gemini-3.8-flash-medium` — keep only the one that applies (see `docs/SETUP.md`, step 4) | Document Analyzer, Release Writer, and Coder for Unit S — pass `model:` explicitly on each call |
 | Antigravity Deep pin | `gemini-3.8-flash-high` | Coder for Unit M/L and mandatory Adversarial Plan Critique for Unit L (architectural / security-sensitive) |
 | QA pin | `gpt-5.6-terra` | Passed as `--model gpt-5.6-terra` on every QA `codex-companion.mjs task` call (called directly via `Bash`, not the `codex:codex-rescue` subagent) — there is no profile to set it once, it's a per-call flag, and only the literal pin value here works: the script aliases `spark` but passes any other string straight through to Codex |
 | Security pin | `gpt-6-sol` | Passed as `--model gpt-6-sol` on every Security `codex-companion.mjs task` call — same, per-call |
 | Planner/Reviewer | none (you) | Chosen by you, per plan — no fixed pin |
+
+**Antigravity account tier.** Antigravity subscriptions now come in two
+tiers: one with access to the Gemini 4 series, one limited to
+`gemini-3.8-flash`. The Fast pin depends on which tier this machine's `agy`
+account is on — determine it once at setup (`docs/SETUP.md`, step 4) by
+checking whether `gemini-4-neon-medium` appears verbatim in the bridge's
+`list_models` output, and write the resulting single value into the table
+above. Don't leave both values in the table and pick per call: a pin that
+isn't on the account is rejected at call time, and there is no automatic
+fallback (see `docs/MIGRATION.md`, "Model fallback chain"). If the account
+tier changes, re-run that check and update the pin here.
 
 ## Roles
 

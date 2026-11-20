@@ -129,6 +129,31 @@ self-heal on update:
 4. Copy `templates/CLAUDE.md` into the target project's `CLAUDE.md` (or
    merge it in) — keep the `@AGENTS.md` import line at the top.
    **Two-bridge mode:** also append `CLAUDE-two-bridge-overlay.md`.
+
+   **Then set the Antigravity Fast pin for this account's tier.**
+   Antigravity subscriptions come in two tiers: one with access to the
+   Gemini 4 series and one limited to `gemini-3.8-flash`. Ask Claude Code
+   to call the `antigravity` bridge's `list_models` tool and look for the
+   exact ID `gemini-4-neon-medium`:
+
+   | `list_models` output | Fast pin to write into `CLAUDE.md` |
+   |---|---|
+   | contains `gemini-4-neon-medium` | `gemini-4-neon-medium` |
+   | does not contain it | `gemini-3.8-flash-medium` |
+
+   Match the full ID, not a `gemini-4` substring — a Gemini 4 model of a
+   different size or effort level being listed doesn't prove this one is
+   available. Replace the two-value Fast pin cell in your `CLAUDE.md`'s
+   "Model pins" table with the single value that applies. Also confirm
+   the Deep pin (`gemini-3.8-flash-high`) appears in the same output —
+   it's available on both tiers today, but verify rather than assume.
+
+   The plugin's `.mcp.json` sets `AGY_MCP_DEFAULT_MODEL` to
+   `gemini-3.8-flash-medium` on purpose: it's the one value that works on
+   both tiers, and the pipeline passes `model:` explicitly on every call,
+   so the bridge default only matters for calls that forget to. Don't
+   change it to a Gemini 4 ID in the plugin — that would break every
+   `gemini-3.8-flash`-only install.
 5. Copy `templates/AGENTS.md` into the project's root `AGENTS.md` (or
    merge it in).
 6. **(Optional, project-owned skills only)** If this project has its own

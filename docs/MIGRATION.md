@@ -139,6 +139,10 @@ Run the bridge's own `list_models` tool and confirm your Antigravity pin
 from `CLAUDE.md`'s "Model pins" table appears there verbatim as an ID. Fix
 the pin if it does not.
 
+If the Fast pin is the Gemini 4 value and it is missing from
+`list_models`, the account is on the `gemini-3.8-flash`-only tier: switch
+the Fast pin to its fallback value (see `docs/SETUP.md`, step 4).
+
 ### 5. Two-bridge mode only: replace the `adversarial_review` chain
 
 Skip this section entirely if you run three-bridge mode (Codex QA/Security).
