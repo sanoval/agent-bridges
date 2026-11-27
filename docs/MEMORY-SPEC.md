@@ -34,7 +34,9 @@ We capture at unit boundaries instead.
 QA and Security run in the repo as cwd and read the working tree themselves
 (`skills/delegation-pipeline/SKILL.md`, Codex call item 4; two-bridge lenses
 likewise run `agy_run` with `cwd` = repo). Their `read-only` mode
-(`mode: "plan"` for agy, no `--write` for Codex) blocks **writes**, not reads.
+(`mode: "plan"` for agy, no `--write` for Codex) was assumed to block
+**writes**, not reads. **For agy that assumption is false**: `mode: "plan"` does
+not block writes (see "Information isolation").
 Anything inside the repo tree is therefore readable by the roles that must stay
 independent. A worktree or sparse checkout does not fix this for tracked files
 (they exist in every checkout) and conflicts with reading the real working tree.
@@ -106,8 +108,82 @@ If this residual risk is unacceptable for a given project, the only hard fixes
 are running QA/Security as a different OS user or in a container that does not
 mount `~/.agent-bridges/`; both are out of scope for v1.
 
-The same read-outside-cwd behavior is **unchecked for agy** in `mode: "plan"`
-(open question 4); assume it can until tested.
+**VERIFIED — agy reads outside cwd too** (2026-11-27; agy 1.5.18, agy-mcp 2.6.1,
+model `gemini-4-hydrogen-medium`, plugin server
+`plugin:agent-bridges:antigravity`, `cwd` = this repo). A random token stored in
+`~/.agent-bridges/probe/`, given to agy only as an absolute path, came back
+verbatim via agy's `read_file` in all three runs:
+
+| `mode` | `sandbox` | `dirs` | Result |
+|---|---|---|---|
+| `plan` | off | none | read |
+| `plan` | on | none | read |
+| `accept-edits` | off | none | read |
+
+Negative control: a nonexistent path in the same directory (`plan`) returned
+"file does not exist", not invented contents. Consequences: Analyzer/Coder can
+be handed absolute note paths without `dirs`; a two-bridge lens carries the same
+residual risk as Codex; and neither omitting `dirs` nor `sandbox: true`
+restricts these reads, so neither is an isolation control. The runs were told the
+path; they did not test whether a run discovers it unprompted.
+
+**VERIFIED — agy `mode: "plan"` does NOT block writes** (same date and setup;
+every file was confirmed on disk, not from agy's report). Each run was asked to
+create a file, and each did so with `write_file`, without a refusal:
+
+| `mode` | `sandbox` | Inside `cwd` (this repo) | Outside `cwd` (`~/.agent-bridges/probe/`) |
+|---|---|---|---|
+| `plan` | off | written | written |
+| `plan` | on | written | written |
+| `accept-edits` | off | not tested | written |
+
+No `dirs` was passed in any run. The prompts asked for the write explicitly, so
+this shows what the mode **permits**, not that an agent writes unprompted. Shell
+commands were not tested. `agy --help` describes `--sandbox` as "terminal
+restrictions" only, which is consistent with it not stopping `write_file`.
+
+**VERIFIED — Codex `read-only` blocks file-tool writes** (2026-11-27, codex-cli
+0.166.0, `codex exec -s read-only` in a throwaway repo): one write inside `cwd`
+and one under `~/.agent-bridges/probe/` were both rejected ("writing is blocked
+by read-only sandbox"), and neither file existed on disk. Shell-command writes
+were not tested, and the `codex-companion.mjs task` path was not tested for
+writes.
+
+Consequences:
+
+- A two-bridge lens can **modify or delete** notes, not only read them (only file
+  creation was tested). The canary does not detect tampering.
+- Drafting into `pending/` works without `dirs`, but agy is not confined to
+  `pending/`. "Single writer" is a prompt convention for agy, not a guarantee.
+  **Proposed:** agy returns the draft as its result and Claude Code writes the
+  file, and prompts never ask agy to write under the notes dir. This does not
+  stop a misbehaving run; Claude Code would have to compare the notes dir before
+  and after a run to detect that.
+- Outside this spec: `skills/delegation-pipeline` described `mode: "plan"` as
+  mechanically read-only. The correction is on branch
+  `fix/agy-readonly-claims` (not merged when this was written).
+
+**VERIFIED — a custom agent does block writes** (same date and versions;
+definition and full results on branch `fix/agy-readonly-claims`:
+`agy-agents/agent-bridges-readonly.md` and the delegation-pipeline `SKILL.md`,
+"Read-only roles"). The globally installed agent `agent-bridges-readonly` had no
+file-write, shell, or MCP call tool, and asked to create a file it created none
+(`gemini-4-hydrogen-medium` and `gemini-4-neon-medium`; lens pins not tested).
+It also loads **no rules**: neither the repo's `AGENTS.md` nor user rules
+(tested with a token in `AGENTS.md` that the default agent did see). A
+same-named agent in the repo's `.agents/agents/` overrides it.
+
+What this changes here, for every non-Coder agy role once that branch is merged:
+
+- Lenses cannot modify notes while the agent is in force. It does not restrict
+  reads, so non-discoverability still applies.
+- Lenses on this agent should not receive `GLOBAL_RULES.md` (inferred from "no
+  user rules"), so a pointer there would not reach them. Codex still reads its
+  own global file.
+- Analyzer and Release Writer no longer get `AGENTS.md` natively: the payload
+  must give its absolute path. The "Facts" column under "Read path per harness"
+  holds only for the Coder.
+- None of this constrains the Coder, which can still write anywhere.
 
 Claude Code reads `AGENTS.md` natively since v2.1.277 (source:
 code.claude.com/docs/en/memory, section "AGENTS.md"; relayed, re-check on
@@ -155,8 +231,30 @@ from each harness's global entry (`~/.claude/CLAUDE.md` — the docs do not say
 `GLOBAL_RULES.md` symlink in `docs/SETUP.md`. Because the personal tier is
 facts-level only, reaching Codex is allowed.
 
-**UNVERIFIED:** whether `~/.codex/AGENTS.md` supports imports or needs a
-symlink/copy.
+**VERIFIED (at project level)** (2026-11-27; codex-cli 0.166.0,
+`codex exec --json -s read-only` in throwaway git repos, random token per
+source, event stream showed no command or tool items):
+
+| Mechanism in `AGENTS.md` | Token in context? |
+|---|---|
+| plain text (positive control) | yes |
+| `@/absolute/path.md` import | **no** |
+| `@relative.md` import | **no** |
+| `AGENTS.md` is a symlink to a file outside the repo | yes |
+
+So Codex has no `@` import; a symlink works. The global `~/.codex/AGENTS.md` was
+not modified or tested directly.
+
+This breaks "import or symlink" for the Codex entry. `~/.codex/AGENTS.md`
+already holds Codex-specific rules, so it cannot become a symlink to
+`pointers.md`. Also, any Codex entry that names a path under `~/.agent-bridges/`
+(a "read this file" line) tells QA/Security where the parent of `projects/`
+is, which weakens non-discoverability. **Proposed, not yet decided:** copy the
+personal pointers into a marker-delimited block in `~/.codex/AGENTS.md` (no
+path disclosed; cost: the copy can drift). The same concern applies to agy
+lenses run on the default agent, which read `GLOBAL_RULES.md` (a symlink to
+`~/.claude/CLAUDE.md` on the tested machine); see the custom agent result under
+"Information isolation".
 
 ## Write path
 
@@ -164,7 +262,8 @@ Single writer: Claude Code.
 
 1. Trigger: after step 5 (Reconcile) of a unit, and on explicit `/notulen`.
 2. agy (Document Analyzer) may draft a note or digest into `pending/`.
-   The transcript it receives is scrubbed first.
+   The transcript it receives is scrubbed first. (Under review: see the
+   write test under "Information isolation".)
 3. Claude Code reviews the draft, runs the scrubber, and writes the final entry.
    Same posture as `learning-curator`: non-blocking, and a failure here never
    changes the outcome of a verified unit.
@@ -217,10 +316,17 @@ which is an environment-setup problem.
    per-OS-user or container run becomes practical.
 2. `<repo-id>` derivation: origin-URL slug vs root-commit hash; behavior for
    repos with no remote.
-3. Codex global-tier import mechanism (`~/.codex/AGENTS.md`).
-4. What `agy-mcp` actually exposes for file/document handling (it failed to
-   connect when this spec was drafted, so nothing was verified), and whether
-   agy can read an absolute path outside its `cwd` (needed for Analyzer/Coder;
-   a problem for the lens roles if it can). Must be tested on a machine where
-   `agy-mcp` is installed — it is not in the drafting container.
+3. ~~Codex import mechanism~~ — tested: no `@` import, symlink works (see "Read
+   path per harness"). Still to decide: how the personal tier reaches Codex.
+4. ~~agy file handling and read scope~~ — agy-mcp 2.6.1 exposes no file or
+   document tools (`agy_run`, `agy_run_sync`, `agy_status`, `agy_wait`,
+   `agy_cancel`, `list_models`, `list_agents`, `list_sessions`); file access is
+   agy's own tools, with `cwd` and `dirs` as the only path parameters. agy reads
+   **and writes** outside `cwd`, and `mode: "plan"` does not block writes (see
+   "Information isolation").
 5. Default `expires` window for episodic entries.
+6. The read-path table and the `AGENTS.md`/`CLAUDE.md` paragraph allow a
+   `CLAUDE.md` pointer as a fallback channel. A repo `CLAUDE.md` is inside the
+   tree, so QA/Security can read it, which contradicts enforcement rule 1. A
+   `~/.claude/CLAUDE.md` pointer reaches agy lenses through `GLOBAL_RULES.md`.
+   Proposed: drop the fallback and use the SessionStart hook only.
