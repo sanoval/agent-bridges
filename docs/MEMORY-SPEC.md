@@ -59,10 +59,14 @@ Consequences for where pointers live:
 
 - `AGENTS.md` is read natively by all three harnesses, so it must contain
   **facts only**. It must never point at `notes/sessions/`.
-- Claude Code now reads `AGENTS.md` natively too (reported by the project
-  owner; **UNVERIFIED** against Claude Code docs), so `AGENTS.md` is the *only*
-  file all three harnesses share and there is no harness-exclusive native
-  memory file to lean on. Do not rely on `CLAUDE.md` as the exclusive channel.
+- Claude Code reads `AGENTS.md` natively since v2.1.277 (source:
+  code.claude.com/docs/en/memory, section "AGENTS.md"; relayed, re-check on
+  upgrade). With default settings, if a `CLAUDE.md` exists in the working
+  directory or above, **only `CLAUDE.md` is loaded** and `AGENTS.md` arrives
+  only through an `@AGENTS.md` import. Consequences: keep the `@AGENTS.md`
+  import in `CLAUDE.md` (older builds and some sessions read `CLAUDE.md`
+  only), and treat `CLAUDE.md` as a valid Claude-only channel — but a
+  secondary one, since the `Project instructions` setting can load both.
 - The pointer to `notes/index.md` is delivered by the plugin's SessionStart
   hook (Claude Code only) and by payloads Claude Code builds for agy. Any
   mention in a file that Codex reads natively is a leak.
@@ -100,12 +104,13 @@ they are the right place for anything Codex must not see.
 
 | Harness | Facts | Notes (where permitted) |
 |---|---|---|
-| Claude Code | `AGENTS.md` (native) | SessionStart hook injecting `index.md` (plugin; Claude-only) |
+| Claude Code | `CLAUDE.md` (`@AGENTS.md` import; native `AGENTS.md` on v2.1.277+) | SessionStart hook injecting `index.md` (plugin; Claude-only); `CLAUDE.md` pointer as fallback |
 | agy | `AGENTS.md` | pointer inside the payload Claude Code builds |
 | Codex | `AGENTS.md` | excerpts in the payload only |
 
 Personal tier: one canonical file under `~/.agent-bridges/`, reached from each
-harness's global entry (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
+harness's global entry (`~/.claude/CLAUDE.md` — the docs do not say
+`~/.claude/AGENTS.md` is read — `~/.codex/AGENTS.md`,
 `~/.antigravity/GLOBAL_RULES.md`) by import or symlink, following the existing
 `GLOBAL_RULES.md` symlink in `docs/SETUP.md`.
 
