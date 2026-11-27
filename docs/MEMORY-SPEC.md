@@ -80,7 +80,7 @@ columns: agy is a permitted reader as Analyzer/Coder/Release Writer and a
 | Session notes (decisions, rationale) | yes | yes | **no** | **no** |
 | Document digests | yes | yes | only excerpts relevant to the diff, in payload | only excerpts relevant to the diff, in payload |
 
-Enforcement (layered; none is a mechanical guarantee):
+Enforcement (layered; none is a mechanical guarantee, see residual risk below):
 
 1. **Out-of-tree storage.** Roles that must not read notes start in the repo
    and nothing inside the repo refers to the notes path.
@@ -91,11 +91,23 @@ Enforcement (layered; none is a mechanical guarantee):
    lens payload, only deliberately chosen excerpts.
 5. **Single writer.** Claude Code decides what any payload contains.
 
-**UNVERIFIED — residual risk.** The `read-only` sandbox may still permit reading
-absolute paths outside cwd. If so, a Codex run that decides to explore `$HOME`
-could find the notes. We rely on obscurity of location plus items 2–4 rather
-than a sandbox guarantee. `codex-companion.mjs` is not installed in the drafting
-environment, so its sandbox read scope was not inspected. Check before locking.
+**VERIFIED — residual risk (tested by the project owner).** Codex's
+`read-only` run *can* read files outside its cwd. Out-of-tree storage therefore
+provides **isolation by non-discoverability, not by enforcement**: nothing
+points a QA/Security run at the notes, but a run that explores `$HOME` could
+find them. This is accepted, not solved. Mitigations:
+
+6. **Canary (weak detection only).** `index.md` carries a unique token. Claude
+   Code scans QA/Security/lens output for it; a hit means the role read the notes
+   and its findings are treated as contaminated (re-run fresh, note the breach).
+   It only catches leakage that surfaces in the output, so it is not a guarantee.
+
+If this residual risk is unacceptable for a given project, the only hard fixes
+are running QA/Security as a different OS user or in a container that does not
+mount `~/.agent-bridges/`; both are out of scope for v1.
+
+The same read-outside-cwd behavior is **unchecked for agy** in `mode: "plan"`
+(open question 4); assume it can until tested.
 
 Claude Code reads `AGENTS.md` natively since v2.1.277 (source:
 code.claude.com/docs/en/memory, section "AGENTS.md"; relayed, re-check on
@@ -200,12 +212,15 @@ which is an environment-setup problem.
 
 ## Open questions
 
-1. Sandbox read scope of `codex-companion.mjs task` outside cwd (residual risk
-   above).
+1. ~~Sandbox read scope of Codex outside cwd~~ — tested: it can read outside
+   cwd. Residual risk accepted with canary detection (see above). Revisit if a
+   per-OS-user or container run becomes practical.
 2. `<repo-id>` derivation: origin-URL slug vs root-commit hash; behavior for
    repos with no remote.
 3. Codex global-tier import mechanism (`~/.codex/AGENTS.md`).
 4. What `agy-mcp` actually exposes for file/document handling (it failed to
    connect when this spec was drafted, so nothing was verified), and whether
-   agy can read an absolute path outside its `cwd` for the Analyzer/Coder roles.
+   agy can read an absolute path outside its `cwd` (needed for Analyzer/Coder;
+   a problem for the lens roles if it can). Must be tested on a machine where
+   `agy-mcp` is installed — it is not in the drafting container.
 5. Default `expires` window for episodic entries.
