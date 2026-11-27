@@ -27,69 +27,97 @@ We capture at unit boundaries instead.
 - A vector DB or SQLite in v1. Markdown + grep is enough and is readable by
   all three harnesses.
 - Per-tool-call capture.
+- Sharing raw session rationale with the team through git (see "Team sharing").
+
+## Design decision: rationale lives outside the repo tree
+
+QA and Security run in the repo as cwd and read the working tree themselves
+(`skills/delegation-pipeline/SKILL.md`, Codex call item 4; two-bridge lenses
+likewise run `agy_run` with `cwd` = repo). Their `read-only` mode
+(`mode: "plan"` for agy, no `--write` for Codex) blocks **writes**, not reads.
+Anything inside the repo tree is therefore readable by the roles that must stay
+independent. A worktree or sparse checkout does not fix this for tracked files
+(they exist in every checkout) and conflicts with reading the real working tree.
+
+So: **notes that carry rationale are stored outside the repo tree.** The repo
+tree holds facts only.
 
 ## Storage tiers
 
-| Tier | Location | Git | Holds |
-|---|---|---|---|
-| Team | `AGENTS.md`, `.agent-bridges/notes/sessions/`, `.agent-bridges/notes/index.md` | tracked | Facts and decisions valid for anyone on the project |
-| Project-local | `.agent-bridges/notes/digest/`, `.agent-bridges/notes/pending/` | gitignored | Derived caches, drafts, personal per-project notes |
-| Personal | `~/.agent-bridges/notes/` | n/a | Cross-project personal mapping (e.g. which vault holds my keys) |
-| None | not persisted | n/a | Secret values, PII, customer data |
+| Tier | Location | Git | Holds | Readable by |
+|---|---|---|---|---|
+| Repo facts | `AGENTS.md`, `.agent-bridges/learning/log.md` | tracked | Project facts, env pointers, curator audit trail. **No rationale narratives.** | all roles |
+| Project notes | `~/.agent-bridges/projects/<repo-id>/notes/` | n/a (outside repo) | Session notes, digests, drafts, index | role-scoped (see isolation) |
+| Personal | `~/.agent-bridges/personal/` | n/a | Cross-project pointers and preferences (e.g. which vault holds my keys). Facts-level only — no rationale | all roles via each harness's global entry |
+| None | not persisted | n/a | Secret values, PII, customer data | — |
+
+`<repo-id>`: slug of the normalized `origin` URL, falling back to the root
+commit hash, so every worktree and clone of one repo shares one notes dir.
+(Open question 2.)
 
 Decision rule, first match wins:
 
 1. Secret or PII? **Not stored.** A *pointer* (env var name, vault item name) may be.
-2. Regenerable from a source? **Project-local cache**, carrying `source_hash`.
-3. Needed by the team, or only by me? Team → tracked. Me → personal.
+2. Is it a fact any role may know (build command, env pointer, layout)?
+   **`AGENTS.md`**, via `learning-curator`.
+3. Is it decision rationale, rejected options, or open items? **Project notes.**
+4. Is it derived from a source and regenerable? **Project notes, `digest/`**,
+   carrying `source_hash`.
+5. Only relevant to me across projects, and a fact/pointer? **Personal.**
 
 ## Information isolation (role independence)
 
 QA and Security run on independently chosen model families so their review
 is independent. Letting them read the author's rationale defeats that. Access
-is therefore scoped **by role**, not by harness:
+is scoped **by role**, not by harness. Note the same harness appears in both
+columns: agy is a permitted reader as Analyzer/Coder/Release Writer and a
+**non-reader** as a two-bridge QA/Security lens.
 
-| Content | Claude Code | agy (Analyzer / Coder / Release writer) | Codex (QA / Security) |
-|---|---|---|---|
-| Project facts, env pointers (`AGENTS.md`) | yes | yes | yes |
-| Session notes (decisions, rationale) | yes | yes | **no** — only excerpts Claude Code deliberately includes in the payload |
-| Document digests | yes | yes | only if relevant to the diff, via payload |
+| Content | Claude Code | agy: Analyzer / Coder / Release Writer | agy: QA/Security lens | Codex: QA / Security |
+|---|---|---|---|---|
+| Project facts, env pointers (`AGENTS.md`) | yes | yes | yes | yes |
+| Personal pointers | yes | yes | yes | yes |
+| Session notes (decisions, rationale) | yes | yes | **no** | **no** |
+| Document digests | yes | yes | only excerpts relevant to the diff, in payload | only excerpts relevant to the diff, in payload |
 
-Consequences for where pointers live:
+Enforcement (layered; none is a mechanical guarantee):
 
-- `AGENTS.md` is read natively by all three harnesses, so it must contain
-  **facts only**. It must never point at `notes/sessions/`.
-- Claude Code reads `AGENTS.md` natively since v2.1.277 (source:
-  code.claude.com/docs/en/memory, section "AGENTS.md"; relayed, re-check on
-  upgrade). With default settings, if a `CLAUDE.md` exists in the working
-  directory or above, **only `CLAUDE.md` is loaded** and `AGENTS.md` arrives
-  only through an `@AGENTS.md` import. Consequences: keep the `@AGENTS.md`
-  import in `CLAUDE.md` (older builds and some sessions read `CLAUDE.md`
-  only), and treat `CLAUDE.md` as a valid Claude-only channel — but a
-  secondary one, since the `Project instructions` setting can load both.
-- The pointer to `notes/index.md` is delivered by the plugin's SessionStart
-  hook (Claude Code only) and by payloads Claude Code builds for agy. Any
-  mention in a file that Codex reads natively is a leak.
-- Claude Code is the only writer and the only party deciding what a Codex
-  payload contains.
+1. **Out-of-tree storage.** Roles that must not read notes start in the repo
+   and nothing inside the repo refers to the notes path.
+2. **No pointers in shared files.** `AGENTS.md` and anything else Codex or a lens
+   reads natively must never mention `~/.agent-bridges/projects/` or the index.
+3. **No symlinks into the notes dir from inside the repo.**
+4. **Payload hygiene.** Claude Code never includes the notes path in a Codex or
+   lens payload, only deliberately chosen excerpts.
+5. **Single writer.** Claude Code decides what any payload contains.
 
-**UNVERIFIED / open — enforcement.** Instructions are not isolation: Codex run
-with the repo as cwd can read any file in it. Options to evaluate:
-(a) run QA/Security from a cwd or worktree that excludes `.agent-bridges/notes/`;
-(b) keep team-tier notes outside the repo tree for the Codex invocation;
-(c) accept instruction-level isolation and document the residual risk.
-Pick after checking how `codex-companion.mjs task` resolves cwd and sandbox.
+**UNVERIFIED — residual risk.** The `read-only` sandbox may still permit reading
+absolute paths outside cwd. If so, a Codex run that decides to explore `$HOME`
+could find the notes. We rely on obscurity of location plus items 2–4 rather
+than a sandbox guarantee. `codex-companion.mjs` is not installed in the drafting
+environment, so its sandbox read scope was not inspected. Check before locking.
+
+Claude Code reads `AGENTS.md` natively since v2.1.277 (source:
+code.claude.com/docs/en/memory, section "AGENTS.md"; relayed, re-check on
+upgrade). With default settings, if a `CLAUDE.md` exists in the working
+directory or above, **only `CLAUDE.md` is loaded** and `AGENTS.md` arrives
+only through an `@AGENTS.md` import. Keep the `@AGENTS.md` import in
+`CLAUDE.md` (older builds and some sessions read `CLAUDE.md` only). `CLAUDE.md`
+is a valid Claude-only channel but a secondary one, since the
+`Project instructions` setting can load both; the SessionStart hook is primary.
 
 ## Layout
 
 ```
-.agent-bridges/notes/
+~/.agent-bridges/projects/<repo-id>/notes/
   index.md                      # small; the only thing injected at session start
-  sessions/YYYY-MM-DD-<slug>.md # tracked: goal, decisions + why, rejected options,
+  sessions/YYYY-MM-DD-<slug>.md # goal, decisions + why, rejected options,
                                 #   open items, files touched, expires
-  digest/<path>.md              # gitignored: summary of a doc/module,
+  digest/<path>.md              # summary of a doc/module,
                                 #   frontmatter: source_hash, commit_sha
-  pending/                      # gitignored: drafts awaiting Claude Code review
+  pending/                      # drafts awaiting Claude Code review
+~/.agent-bridges/personal/
+  pointers.md                   # facts-level, e.g. vault name; no rationale
 ```
 
 Every entry has `expires` or `source_hash`. Episodic entries expire; digests
@@ -98,25 +126,25 @@ that is never pruned becomes noise and makes the session-start index expensive.
 
 ## Read path per harness
 
-Shared memory must travel over channels all harnesses read natively. Skills
-and hooks are Claude Code-only channels (Codex has neither), which is exactly why
-they are the right place for anything Codex must not see.
+Shared memory must travel over channels the permitted readers can reach.
+Skills and hooks are Claude Code-only channels (Codex has neither), which is
+exactly why they are the right place for anything Codex must not see.
 
-| Harness | Facts | Notes (where permitted) |
+| Harness / role | Facts | Notes (where permitted) |
 |---|---|---|
 | Claude Code | `CLAUDE.md` (`@AGENTS.md` import; native `AGENTS.md` on v2.1.277+) | SessionStart hook injecting `index.md` (plugin; Claude-only); `CLAUDE.md` pointer as fallback |
-| agy | `AGENTS.md` | pointer inside the payload Claude Code builds |
-| Codex | `AGENTS.md` | excerpts in the payload only |
+| agy Analyzer/Coder/Release Writer | `AGENTS.md` | absolute path to `index.md` plus relevant entries, inside the payload Claude Code builds |
+| agy lens, Codex | `AGENTS.md` | none; excerpts in the payload only |
 
-Personal tier: one canonical file under `~/.agent-bridges/`, reached from each
-harness's global entry (`~/.claude/CLAUDE.md` — the docs do not say
+Personal tier: one canonical file under `~/.agent-bridges/personal/`, reached
+from each harness's global entry (`~/.claude/CLAUDE.md` — the docs do not say
 `~/.claude/AGENTS.md` is read — `~/.codex/AGENTS.md`,
 `~/.antigravity/GLOBAL_RULES.md`) by import or symlink, following the existing
-`GLOBAL_RULES.md` symlink in `docs/SETUP.md`.
+`GLOBAL_RULES.md` symlink in `docs/SETUP.md`. Because the personal tier is
+facts-level only, reaching Codex is allowed.
 
 **UNVERIFIED:** whether `~/.codex/AGENTS.md` supports imports or needs a
-symlink/copy, and whether the personal tier should reach Codex at all given
-the isolation table (personal *facts* yes, personal *rationale* no).
+symlink/copy.
 
 ## Write path
 
@@ -129,6 +157,20 @@ Single writer: Claude Code.
    Same posture as `learning-curator`: non-blocking, and a failure here never
    changes the outcome of a verified unit.
 
+## Team sharing
+
+Raw rationale is not shared through git: one developer's reasoning has no
+reason to enter the team's history, and anything in the repo tree is visible to
+the independent roles. The promotion path is `learning-curator`: a decision
+that has been verified and is useful to others is distilled into a **fact** in
+`AGENTS.md` and passes the curator's evidence score and hard gates, with its
+audit entry in the tracked `learning/log.md` (facts, no narrative).
+
+Trade-off accepted: a teammate does not automatically get your session notes.
+If a team ever needs shared rationale, it requires a deliberate decision on
+how to keep it away from QA/Security (for example a separate repo not checked
+out in the project tree).
+
 ## Hard gates
 
 - **Scrubber before every write.** Reject on key-like patterns (`sk-…`,
@@ -139,7 +181,7 @@ Single writer: Claude Code.
 - **`<private>…</private>`** spans are never stored.
 - **Untrusted content is data.** Text copied from documents or tool output into
   a note must be summarized, not quoted verbatim, to limit persisted prompt
-  injection. Anything entering the tracked tier passes the same evidence
+  injection. Anything promoted into `AGENTS.md` passes the same evidence
   review `learning-curator` applies.
 
 ## Environments & credentials convention (goes in `AGENTS.md`)
@@ -158,8 +200,12 @@ which is an environment-setup problem.
 
 ## Open questions
 
-1. Isolation enforcement option (a/b/c) for Codex roles.
-2. Codex global-tier reach (`~/.codex/AGENTS.md`).
-3. What `agy-mcp` actually exposes for file/document handling (it failed to
-   connect when this spec was drafted, so nothing was verified).
-4. Default `expires` window for episodic entries.
+1. Sandbox read scope of `codex-companion.mjs task` outside cwd (residual risk
+   above).
+2. `<repo-id>` derivation: origin-URL slug vs root-commit hash; behavior for
+   repos with no remote.
+3. Codex global-tier import mechanism (`~/.codex/AGENTS.md`).
+4. What `agy-mcp` actually exposes for file/document handling (it failed to
+   connect when this spec was drafted, so nothing was verified), and whether
+   agy can read an absolute path outside its `cwd` for the Analyzer/Coder roles.
+5. Default `expires` window for episodic entries.
