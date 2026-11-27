@@ -81,6 +81,8 @@ skills/delegation-pipeline/
 skills/learning-curator/
   SKILL.md                       — post-verification learning: classification, evidence scoring, hard gates
   proposal-template.md           — format for a pending learning proposal
+agy-agents/
+  agent-bridges-readonly.md      — Antigravity custom agent for every non-Coder role (copied to ~/.gemini/config/agents/, see SETUP.md 0d)
 hooks/
   hooks.json                     — PreToolUse hook enforcing the CLAUDE.md Gate mechanically
   agent-bridges-gate.sh          — the Gate-enforcement script referenced by hooks.json
@@ -94,7 +96,9 @@ templates/
 
 `skills/`, `hooks/`, and `.mcp.json` are **plugin-owned** — installing the
 plugin is all that's needed for those, no copying, and `/plugin update`
-picks up new versions. `templates/` is **not** plugin-distributed content:
+picks up new versions. `agy-agents/` ships with the plugin but `agy` does not
+read the plugin cache, so it needs a manual copy ([SETUP.md](SETUP.md), step
+0d). `templates/` is **not** plugin-distributed content:
 `CLAUDE.md`/`AGENTS.md` become part of *your* project's own memory files,
 and a plugin has no mechanism to inject into a file it doesn't own — that
 half still needs the manual copy/merge in [SETUP.md](SETUP.md).

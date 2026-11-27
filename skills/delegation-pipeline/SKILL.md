@@ -51,7 +51,7 @@ switch Coder re-sends to the Deep pin, and note the upgrade (and why) in the che
    **Skipped outright for S-sized units** (see "Sizing a unit" above).
    When the unit starts from a spec/PRD/doc rather than a self-evident bug
    or already-clear ask, send Antigravity the full doc set via `agy_run`
-   with `mode: "plan"`, pass `json_schema` from `skills/delegation-pipeline/schemas/requirement-matrix.json`,
+   as a read-only role (see "Read-only roles"), pass `json_schema` from `skills/delegation-pipeline/schemas/requirement-matrix.json`,
    and ask for a structured requirement matrix. Skip this step
    for units with no doc input to ingest.
 1. **Plan** (you). Decide the unit's size first (see "Sizing a unit"
@@ -62,13 +62,13 @@ switch Coder re-sends to the Deep pin, and note the upgrade (and why) in the che
    Antigravity or Codex.
    **For architectural or security-sensitive Unit L:** Submit the draft plan
    to Antigravity in a new conversation for an **Adversarial Plan Critique**
-   (`agy_run`, `mode: "plan"`, Antigravity Deep pin) to expose blind spots,
+   (`agy_run`, read-only role, Antigravity Deep pin) to expose blind spots,
    unhandled edge cases, or breaking changes before locking the plan.
 2. **Implement** (`antigravity`, Coder role, Antigravity Fast pin for S / Deep pin for M & L).
    Send the full plan plus every file/module it touches in one `agy_run` call with
    `mode: "accept-edits"` — see "Macro-Delegation" below. Antigravity does
-   the actual edit/execution; `mode: "accept-edits"` is what makes this the
-   one role allowed to touch files — every other role runs `mode: "plan"`.
+   the actual edit/execution. This is the one role allowed to touch files, and
+   the only one run without the read-only agent (see "Read-only roles").
    **Self-Verification Mandate:**
    - Establish a test baseline before edits if tests exist.
    - Do NOT edit test files outside the plan's explicit scope (prevents test assertion weakening or reward hacking).
@@ -99,11 +99,10 @@ switch Coder re-sends to the Deep pin, and note the upgrade (and why) in the che
 6. **Release notes** (`antigravity`, Release Writer role, Antigravity Fast pin).
    **Skipped outright for S-sized units** (see "Sizing a unit" above).
    Once a unit is accepted, send the final diff plus the plan to Antigravity
-   via `agy_run` with `mode: "plan"` to draft the changelog entry / doc
-   update. This is drafting only, and `mode: "plan"` makes that mechanical
-   rather than a matter of asking nicely — you still review and commit it
-   yourself, same as any other Antigravity output. Also a new conversation,
-   not a continuation of the Coder session.
+   via `agy_run` as a read-only role (see "Read-only roles") to draft the
+   changelog entry / doc update. This is drafting only — you write, review,
+   and commit it yourself, same as any other Antigravity output. Also a new
+   conversation, not a continuation of the Coder session.
 7. **Learn** (you — non-blocking, no bridge call). Once step 5 (Reconcile)
    confirms final verification passed, load the `learning-curator` skill
    (bundled in this plugin, alongside this one) and let it classify the unit as
@@ -132,8 +131,10 @@ long) and must specify:
   and Adversarial Plan Critique — do not rely on the bridge's own default-model setting
   as anything but a fallback — see `docs/SETUP.md` for why).
 - `mode:` — `"plan"` for every role except Coder, `"accept-edits"` for
-  Coder alone. This is what makes "read-only" a property the tool enforces,
-  not just a convention you ask for in prose.
+  Coder alone. **`mode: "plan"` does not block writes**; never rely on it
+  for read-only.
+- `agent:` — `"agent-bridges-readonly"` on every call except Coder, plus the
+  checks in "Read-only roles". Omit it on Coder calls.
 - `json_schema:` on any call whose output you'll parse or spot-check
   structurally (a requirement matrix, a findings table) — this bounds
   output by shape instead of by character count, so ask for the shape you
@@ -142,8 +143,8 @@ long) and must specify:
 Plus, depending on which role it's playing:
 
 - **Document Analyzer:** every doc/spec/PRD relevant to the unit in one
-  call (`cwd` set to project root) and the exact requirement question to
-  answer.
+  call, listed by **absolute path** (`cwd` set to project root), and the
+  exact requirement question to answer.
 - **Coder:** the full implementation plan (from step 1) and every
   file/directory it touches, plus acceptance criteria — what "done" looks
   like, including any tests to run.
@@ -176,6 +177,90 @@ specify:
    gets "what's exploitable here."
 7. Request **structured findings with `file:line` citations** — a
    pass/fail-style table, not prose.
+
+## Read-only roles (Antigravity)
+
+Applies to every `agy_run` that is not the Coder: Document Analyzer,
+Adversarial Plan Critique, Release Writer, and the two-bridge QA/Security
+lenses.
+
+**`mode: "plan"` is not read-only.** Tested 2026-11-27 (agy 1.5.18, agy-mcp
+2.6.1, `gemini-4-hydrogen-medium`): `plan` runs, with and without
+`sandbox: true`, created files inside and outside `cwd` when asked to, with no
+refusal. `sandbox` only restricts the terminal.
+
+**What blocks writes is the custom agent** `agy-agents/agent-bridges-readonly.md`
+in this plugin (install: `docs/SETUP.md`). It allowlists `view_file` and
+`finish`, drops the default tools, and does not inherit MCP servers. Tested on
+the same setup: the run had `read_file`, `finish`, `manage_task`,
+`list_resources`, and `read_resource`; no file-write, shell, or
+`call_mcp_tool`; asked to create a file, it created none. The same
+create-a-file test on `gemini-4-neon-medium` also created none. `manage_task`
+offered only `list`, `status`, `send_input`, and `kill` on existing background
+tasks (as reported by the run), none of which starts one. `list_resources` had
+no MCP server it was allowed to use. `finish` is what keeps `json_schema`
+working — without it the run fails. An unknown agent name fails the call
+instead of falling back to the default agent. Not tested: other models,
+including the two-bridge lens pins.
+
+What the role cannot do or does not get, so the payload must supply it:
+
+- **No rules are loaded.** In a test repo with a marker in `AGENTS.md`, the
+  default agent saw it and this agent did not, and it reported no project rules
+  and no user rules. Pass the absolute path of the repo's `AGENTS.md` (if it
+  has one) in every call and tell the role to read it first. Include any other
+  rule or project skill the role needs the same way.
+- Read files only by **absolute path** (a relative path was rejected).
+- No directory listing or search: name every file it needs.
+- No shell, so no `git diff`: paste the diff or give the path of a file that
+  holds it.
+- No writing: it returns text, and you write any file yourself.
+
+Also say "Do not modify any file" in the prompt, as a second layer.
+
+**Before each call** (or once before a batch launched together):
+
+1. **Installed copy is intact.** `~/.gemini/config/agents/` is writable by any
+   Coder run. Compare it with the plugin's copy; `<plugin root>` is two levels
+   above this skill's directory:
+   ```bash
+   cmp <plugin root>/agy-agents/agent-bridges-readonly.md ~/.gemini/config/agents/agent-bridges-readonly.md
+   ```
+2. **No shadow in the target repo.** A project file
+   `.agents/agents/agent-bridges-readonly.md` **overrides** the global agent
+   (tested: the project version got `call_mcp_tool` and other default tools
+   back). A cloned repo or an earlier Coder run could plant one. From the repo
+   root, which must also be the call's `cwd`, this must print nothing:
+   ```bash
+   find -L .agents .agent _agents -type f -exec grep -l agent-bridges-readonly {} + 2>/dev/null; find -L .agents .agent _agents -path '*agent-bridges-readonly*' 2>/dev/null
+   ```
+   `-L` matters: it follows symlinked folders. Of these, only a shadow at
+   `.agents/agents/<name>.md` was tested against `agy`; the other paths are
+   precaution. Same-named files in `~/.agents/agents/` and in a non-repo parent
+   directory of `cwd` did **not** override the global agent. Other layouts, and
+   running from a subdirectory of the repo, were not tested. Run the same check
+   in any directory you pass in `dirs`.
+3. **Snapshot the working tree:**
+   ```bash
+   { git rev-parse HEAD; git status --porcelain=v1 --untracked-files=all; git diff HEAD --binary; git ls-files -z --others --exclude-standard | xargs -0 shasum; } | shasum
+   ```
+
+If check 1 or 2 fails, do not make the call. Tell the user what you found.
+
+**After the call** (after the last one in a batch), run the snapshot again. If
+it differs, discard that run's output, show the user what changed, and record
+it in the progress file. Do not revert anything without the user's go-ahead.
+Do not run a Coder, or edit files yourself, in the same tree between the two
+snapshots, or the comparison means nothing.
+
+The snapshot is a backstop with blind spots: it does **not** see gitignored
+files (including `.env`), anything outside the repo, `.git/` internals such as
+hooks and config, other branches, or a change undone before the second
+snapshot. Reads are not restricted at all: this role can still read any
+absolute path it knows or guesses.
+
+If the agent is not installed, install it first. Do not silently run a
+non-Coder role on the default agent.
 
 ## Why direct Bash, not the subagent
 
@@ -276,8 +361,8 @@ own.
 Before handing a high-stakes plan to Antigravity for implementation
 (architecture-level change, risky refactor, anything security-sensitive by
 nature of the task, not just the code), submit the plan itself to Antigravity in
-a new conversation as a pre-implementation sanity check — `agy_run`, `mode:
-"plan"`, Antigravity Deep pin, framing the prompt explicitly as an adversarial critique
+a new conversation as a pre-implementation sanity check — `agy_run`, read-only
+role (see "Read-only roles"), Antigravity Deep pin, framing the prompt explicitly as an adversarial critique
 request ("find what's wrong with this plan before it's built, uncovering blind
 spots, backward compatibility risks, and hidden race conditions").
 Record each finding as accepted or rejected (with reasoning) in your checkpoint.
@@ -288,12 +373,13 @@ mandatory for every unit regardless of stakes.
 ## Example delegation prompts
 
 Antigravity `agy_run` (Document Analyzer):
-> Ingest `docs/billing-spec.md`, `docs/refund-policy.md`, and the linked
-> PRD under `docs/prd/refund-idempotency.md`. Question: what are the
+> Do not modify any file. Ingest `/path/to/repo/docs/billing-spec.md`,
+> `/path/to/repo/docs/refund-policy.md`, and the linked PRD
+> `/path/to/repo/docs/prd/refund-idempotency.md`. Question: what are the
 > concrete, testable requirements for idempotent refund processing? Output:
 > structured requirement matrix conforming to the attached schema.
 > json_schema: <content of skills/delegation-pipeline/schemas/requirement-matrix.json>.
-> model: <Antigravity Fast pin>. mode: "plan". cwd: /path/to/repo
+> model: <Antigravity Fast pin>. mode: "plan". agent: "agent-bridges-readonly". cwd: /path/to/repo
 
 Antigravity `agy_run` (Implementation):
 > Plan: add idempotency key checking to `post_invoice` in `src/billing/refund.py`
@@ -334,7 +420,8 @@ Antigravity `agy_run` (Release Writer):
 > <paste from step 1>. Draft: a changelog entry (one or two lines, user-
 > facing framing) and any doc updates the diff makes stale. Output: the
 > drafted text plus a list of files it should replace/append to — I will
-> review and commit it myself. model: <Antigravity Fast pin>. mode: "plan".
+> review and commit it myself. Do not modify any file.
+> model: <Antigravity Fast pin>. mode: "plan". agent: "agent-bridges-readonly". cwd: /path/to/repo
 
 ## Parallelism, failures, and verification
 

@@ -48,6 +48,11 @@ This registers the `antigravity` MCP server, the `delegation-pipeline` and
 current (`/plugin install agent-bridges@agent-bridges --update` to force a
 check).
 
+**One required manual copy:** every Antigravity role except the Coder runs as
+the read-only custom agent in `agy-agents/`, which the plugin cannot install
+for you. `agy_run`'s `mode: "plan"` does **not** block writes. See
+`docs/SETUP.md` step 0d, and re-run it after each update.
+
 **Upgrading from a pre-0.2.0 install (this plugin used to run its own
 Codex MCP server)?** Updating alone won't clear the old `codex-qa`/
 `codex-security` entries cached in `~/.claude.json`, your stale

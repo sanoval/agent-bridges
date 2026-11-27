@@ -86,6 +86,28 @@ self-heal on update:
    servers. Re-diff your `CLAUDE.md` against the current
    `templates/CLAUDE.md` and re-merge those sections.
 
+### 0d. Install the read-only Antigravity agent (required)
+
+Every Antigravity role except the Coder runs as the custom agent
+`agent-bridges-readonly`, because `mode: "plan"` does not block writes (see
+`skills/delegation-pipeline/SKILL.md`, "Read-only roles"). The plugin cannot
+install it: `agy` reads global agents from `~/.gemini/config/agents/`, so copy
+it there. Run this after installing the plugin **and after every update**:
+
+```bash
+AGENT_BRIDGES_SRC="$(ls -td ~/.claude/plugins/cache/agent-bridges/agent-bridges/*/ 2>/dev/null | head -1)"
+if [ -z "$AGENT_BRIDGES_SRC" ]; then
+  echo "agent-bridges plugin not found in cache — install it first (README, Setup step 0)" >&2
+else
+  mkdir -p ~/.gemini/config/agents
+  cp "${AGENT_BRIDGES_SRC}agy-agents/agent-bridges-readonly.md" ~/.gemini/config/agents/
+fi
+```
+
+Verify with `agy agents`: the list must include `agent-bridges-readonly`. It is
+a copy rather than a symlink because the plugin cache path changes on every
+update. Tested with `agy` 1.5.18; older versions were not tested.
+
 ### Remaining steps (still manual)
 
 1. Prerequisites: `agy` CLI installed and authenticated (1.1.15 or newer —
@@ -239,6 +261,9 @@ updating).
   `agy_run` call framed as QA (with the QA lens pin) and one framed as
   Security (with the Security lens pin) — confirm they return different
   `job_id` values and don't need to wait on each other.
+- **Read-only agent (step 0d):** in a throwaway git repo, run `agy_run` with
+  `agent: "agent-bridges-readonly"` and ask it to create a file. No file may
+  appear on disk (check with `ls`, not the agent's report).
 - **Gate hook (plugin step 0):** ask Claude Code to `Edit`/`Write` an
   application-code file directly. A permission prompt quoting the Gate
   rule should appear first. If not, confirm the plugin is enabled for this

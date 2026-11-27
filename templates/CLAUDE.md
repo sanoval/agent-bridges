@@ -51,9 +51,12 @@ fixed roles, distinguished only by which model pin and framing you pass it
 | Security Engineer | `codex-companion.mjs task` (Bash, no `--write`) | Security pin | Reviews the diff for security issues: injection, auth, secrets, unsafe deserialization, etc. — read-only sandbox enforced by omitting `--write`, `--model` set to the Security pin *(three-bridge mode; the two-bridge overlay replaces this row)* |
 | Release / Changelog Writer | `antigravity` | Antigravity Fast pin | Turns the accepted diff + plan into changelog/doc updates once you've shipped the unit |
 
-You are the only party with repo write access to *decide* — Antigravity
-writes the code (and the docs), but you review it before it ships, and
-QA/Security only ever see a diff you've already looked at once.
+You are the only party with repo write access to *decide* — the Antigravity
+Coder writes the code, but you review it before it ships, and QA/Security
+only ever see a diff you've already looked at once. Every other Antigravity
+role runs as the read-only custom agent `agent-bridges-readonly` and returns
+text that you write yourself (`mode: "plan"` alone does not block writes —
+see the `delegation-pipeline` skill, "Read-only roles").
 
 ## Gate: before you touch Edit, Write, or a file-modifying Bash command
 

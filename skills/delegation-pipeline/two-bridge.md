@@ -15,10 +15,14 @@ own `job_id` immediately, so you don't wait for one before starting the
 other, the same independence-of-execution property three-bridge mode gets
 from two separate `codex-companion.mjs task` calls. This is new: the old
 blocking bridge forced these to run sequentially since one process
-couldn't hold two calls open at once. Each call is `mode: "plan"` (read-only,
-mechanically enforced) and its own fresh conversation (no
-`conversation_id` shared with the other, or with the Coder session), so one
-framing doesn't bias the other's findings.
+couldn't hold two calls open at once. Each call is a read-only role — `agent:
+"agent-bridges-readonly"` plus the before/after checks in `SKILL.md`,
+"Read-only roles" (`mode: "plan"` alone does **not** block writes); take one
+snapshot before launching the lenses and one after both finish. Each call is
+also its own fresh conversation (no `conversation_id` shared with the other, or
+with the Coder session), so one framing doesn't bias the other's findings. A
+lens cannot run `git diff`, list, or search: the payload must carry the diff
+and the absolute path of any file it should read.
 
 **For an S-sized unit** (see `SKILL.md`, "Sizing a unit" — that section
 applies unchanged in two-bridge mode), this is one combined `agy_run` call
@@ -60,15 +64,17 @@ Antigravity `agy_run` (QA lens):
 > Diff: <paste diff>. Original plan/acceptance criteria: <paste from step 1>.
 > Framing: you are a QA engineer. Question: does this satisfy the
 > acceptance criteria? What edge cases or regressions does it miss? Output:
-> pass/fail table with `file:line` citations for each finding.
-> model: <QA lens pin>. mode: "plan".
+> pass/fail table with `file:line` citations for each finding. Do not modify
+> any file.
+> model: <QA lens pin>. mode: "plan". agent: "agent-bridges-readonly". cwd: /path/to/repo
 
 Antigravity `agy_run` (Security lens):
 > Diff: <paste diff>. Framing: you are a security engineer. Question:
 > what's exploitable here — injection, auth bypass, unsafe
 > deserialization, secret handling, race conditions with security impact?
-> Output: severity-ranked findings table with `file:line` citations.
-> model: <Security lens pin>. mode: "plan".
+> Output: severity-ranked findings table with `file:line` citations. Do not
+> modify any file.
+> model: <Security lens pin>. mode: "plan". agent: "agent-bridges-readonly". cwd: /path/to/repo
 
 (Document Analyzer, Coder, and Release Writer prompts are identical to
 `SKILL.md`'s examples.)

@@ -37,14 +37,16 @@ maintained.
 | Role selection | which tool you call | `agy_run` + prompt framing + explicit `model` |
 | Session continuity | `follow_up(session_id)` | `agy_run(conversation_id=…)` |
 | Model fallback chain | automatic (e.g. Flash → Pro) | **none — you retry explicitly** |
-| Read-only enforcement | prompt text only | `mode: "plan"` — enforced by the tool |
+| Read-only enforcement | prompt text only | custom agent `agent-bridges-readonly` — **not** `mode: "plan"` |
 | Output size guard | `AGY_MAX_OUTPUT_CHARS` (50k truncation) | **none — use `json_schema` instead** |
 | Minimum `agy` CLI | not pinned | **1.1.15 or newer (hard floor)** |
 
-Two of these are genuine upgrades worth the churn: `mode: "plan"` makes the
-Analyzer / Release-Writer / review calls mechanically read-only instead of
-read-only-by-request, and `json_schema` bounds output by structure instead
-of by blind character truncation.
+One genuine upgrade is worth the churn: `json_schema` bounds output by
+structure instead of by blind character truncation. An earlier version of this
+guide also claimed `mode: "plan"` makes review calls mechanically read-only.
+That is false: `plan` runs can write files. Read-only comes from the custom
+agent in [SETUP.md](SETUP.md), step 0d, with the checks in
+`skills/delegation-pipeline/SKILL.md`, "Read-only roles".
 
 Two are genuine losses you must compensate for: the install is no longer
 free, and the automatic model fallback chain is gone.
@@ -193,8 +195,9 @@ pin, and from each other.
   message naming the `job_id` — this is the hook working. If the job
   completes but nothing wakes you, see Troubleshooting.
 - `agy_status` on that `job_id` returns its state and result.
-- A call with `mode: "plan"` leaves the working tree untouched
-  (`git status` clean afterwards).
+- In a throwaway git repo, a call with `agent: "agent-bridges-readonly"` that
+  is asked to create a file creates none (check the disk). `mode: "plan"`
+  alone does not pass this test.
 - The Gate hook still fires on a direct `Edit`/`Write` — the migration must
   not have disturbed it.
 
